@@ -30,7 +30,17 @@ set_target_properties(${THIS_TARGET_NAME} PROPERTIES
 # define the target in the source
 target_compile_definitions(${THIS_TARGET_NAME} PRIVATE AGM_TARGET=${THIS_TARGET_NAME})
 
+# you need to set this:
+set(ZWO_ASI_DIR "/home/timmer/Documents/code/astrophotography/ASI_linux_mac_SDK_V1.26")
+
+# add the include directories
+set(INCS
+    ${ZWO_ASI_DIR}/include
+)
+include_directories(${INCS})
+
 # add the libraries
 set(LIBS
+    ${ZWO_ASI_DIR}/lib/x64/libASICamera2.so
 )
 target_link_libraries(${THIS_TARGET_NAME} ${LIBS})
