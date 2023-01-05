@@ -6,6 +6,8 @@ Copyright (C) 2012-2023 tim cotter. All rights reserved.
 drive the zwo asi astrophotography camera.
 **/
 
+#include <sstream>
+
 #include <ASICamera2.h>
 
 #include "log.h"
@@ -29,8 +31,8 @@ public:
         num_cameras_ = ASIGetNumOfConnectedCameras();
         if (num_cameras_ != 1) {
             LOG("Aborting.");
-            LOG("Number of cameras is "<<num_cameras_<<".");
-            LOG("Expected number is 1.");
+            LOG("  Number of cameras is "<<num_cameras_<<".");
+            LOG("  Expected number is 1.");
             return;
         }
 
@@ -40,24 +42,59 @@ public:
 
         width_ = camera_info.MaxWidth;
         height_ = camera_info.MaxHeight;
-        LOG("Resolution: "<<width_<<" x "<<height_);
+        LOG("  Resolution: "<<width_<<" x "<<height_);
 
         is_color_ = (camera_info.IsColorCam == ASI_TRUE);
         if (is_color_) {
             bayer_ = camera_info.BayerPattern;
-            LOG("Color: Bayer: "<<bayer_);
+            LOG("  Color: Bayer: "<<bayer_);
         } else {
-            LOG("Color: Mono");
+            LOG("  Color: Mono");
         }
 
 		ASI_ERROR_CODE result = ASIOpenCamera(kCameraNumber);
 		if (result != ASI_SUCCESS) {
             LOG("Failed to open camera.");
-            LOG("ASIOpenCamera("<<kCameraNumber<<"): "<<result);
+            LOG("  ASIOpenCamera("<<kCameraNumber<<"): "<<result);
             return;
 		}
 		LOG("Opened camera.");
 
+        int num_controls = 0;
+        ASIGetNumOfControls(kCameraNumber, &num_controls);
+        for (int i = 0; i < num_controls; i++)
+        {
+            ASI_CONTROL_CAPS controls;
+            ASIGetControlCaps(kCameraNumber, i, &controls);
+            LOG("Control "<<i<<": "<<controls.Name);
+        }
+
+        std::stringstream supported_bins;
+        const int kMaxBins = sizeof(camera_info.SupportedBins);
+        for (int i = 0; i < kMaxBins; ++i) {
+            int bin = camera_info.SupportedBins[i];
+            if (bin == 0) {
+                break;
+            }
+            supported_bins << " " << bin;
+        }
+        LOG("Supported binning modes:"<<supported_bins.str());
+
+        int wd = 0;
+        int ht = 0;
+        int bin = 0;
+        ASI_IMG_TYPE type = ASI_IMG_END;
+        result = ASIGetROIFormat(kCameraNumber, &wd, &ht, &bin, &type);
+        if (result == ASI_SUCCESS) {
+            const char* image_types[] = {"raw8", "rgb24", "raw16", "y8"};
+            LOG("Default format:");
+            LOG("  resolution: "<<wd<<" x "<<ht);
+            LOG("  bin: "<<bin);
+            LOG("  image type: "<<image_types[type]<<" ("<<type<<")");
+        } else {
+            LOG("Failed to get default format.");
+            LOG("  ASIGetROIFormat("<<kCameraNumber<<"): "<<result);
+        }
 
     	ASICloseCamera(kCameraNumber);
     	LOG("Closed camera.");
