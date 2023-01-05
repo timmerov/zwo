@@ -1,0 +1,15 @@
+build-unix64-debug/
+build-unix64-release/
+build-win64/
+bin/
+*.log
+*.obj
+*.png
+*.mp4
+*.lnk
+*.tiff
+*.ppm
+*.out
+*.CR2
+*.xmp
+*.jpg
