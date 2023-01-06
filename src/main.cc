@@ -42,12 +42,13 @@ public:
 
         width_ = camera_info.MaxWidth;
         height_ = camera_info.MaxHeight;
-        LOG("  Resolution: "<<width_<<" x "<<height_);
+        LOG("  Max resolution: "<<width_<<" x "<<height_);
 
         is_color_ = (camera_info.IsColorCam == ASI_TRUE);
         if (is_color_) {
             bayer_ = camera_info.BayerPattern;
-            LOG("  Color: Bayer: "<<bayer_);
+            const char* bayer_types[] = {"RG", "BG", "GR", "GB"};
+            LOG("  Color: Bayer ("<<bayer_<<"): "<<bayer_types[bayer_]);
         } else {
             LOG("  Color: Mono");
         }
@@ -66,7 +67,15 @@ public:
         {
             ASI_CONTROL_CAPS controls;
             ASIGetControlCaps(kCameraNumber, i, &controls);
-            LOG("Control "<<i<<": "<<controls.Name);
+            ASI_CONTROL_TYPE control_type = controls.ControlType;
+            long control_value = controls.DefaultValue;
+            ASI_BOOL control_auto = controls.IsAutoSupported;
+            result = ASIGetControlValue(kCameraNumber, control_type, &control_value, &control_auto);
+            if (result == ASI_SUCCESS) {
+                LOG("Control["<<i<<"]: "<<controls.Name<<": value: "<<control_value<<" auto: "<<control_auto);
+            } else {
+                LOG("Control["<<i<<"]: "<<controls.Name<<": failure: "<<result);
+            }
         }
 
         std::stringstream supported_bins;
