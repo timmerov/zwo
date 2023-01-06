@@ -6,6 +6,8 @@ Copyright (C) 2012-2023 tim cotter. All rights reserved.
 drive the zwo asi astrophotography camera.
 **/
 
+#include <opencv2/opencv.hpp>
+#include <opencv2/imgproc.hpp>
 #include <sstream>
 
 #include <ASICamera2.h>
@@ -28,6 +30,7 @@ public:
     void run() {
         LOG("Starting ZWO ASI camera.");
 
+        /** find the camera. **/
         num_cameras_ = ASIGetNumOfConnectedCameras();
         if (num_cameras_ != 1) {
             LOG("Aborting.");
@@ -36,14 +39,17 @@ public:
             return;
         }
 
+        /** get the camera info. **/
         ASI_CAMERA_INFO camera_info;
 		ASIGetCameraProperty(&camera_info, kCameraNumber);
 		LOG("Found camera: "<<camera_info.Name);
 
+        /** show max resolution. **/
         width_ = camera_info.MaxWidth;
         height_ = camera_info.MaxHeight;
         LOG("  Max resolution: "<<width_<<" x "<<height_);
 
+        /** show color format. **/
         is_color_ = (camera_info.IsColorCam == ASI_TRUE);
         if (is_color_) {
             bayer_ = camera_info.BayerPattern;
@@ -53,6 +59,7 @@ public:
             LOG("  Color: Mono");
         }
 
+        /** open the camera for capturing. **/
 		ASI_ERROR_CODE result = ASIOpenCamera(kCameraNumber);
 		if (result != ASI_SUCCESS) {
             LOG("Failed to open camera.");
@@ -61,6 +68,7 @@ public:
 		}
 		LOG("Opened camera.");
 
+        /** enumerate all control capabilities and current settings. **/
         int num_controls = 0;
         ASIGetNumOfControls(kCameraNumber, &num_controls);
         for (int i = 0; i < num_controls; i++)
@@ -78,6 +86,7 @@ public:
             }
         }
 
+        /** enumerate all supported binnings. **/
         std::stringstream supported_bins;
         const int kMaxBins = sizeof(camera_info.SupportedBins);
         for (int i = 0; i < kMaxBins; ++i) {
@@ -89,6 +98,7 @@ public:
         }
         LOG("Supported binning modes:"<<supported_bins.str());
 
+        /** show the default format. **/
         int wd = 0;
         int ht = 0;
         int bin = 0;
@@ -105,6 +115,25 @@ public:
             LOG("  ASIGetROIFormat("<<kCameraNumber<<"): "<<result);
         }
 
+        /** change to bin 2. **/
+        wd /= 2;
+        ht /= 2;
+        bin = 2;
+        result = ASISetROIFormat(kCameraNumber, wd, ht, bin, type);
+        LOG("=WIP=: force bin=2.");
+        LOG("  ASISetROIFormat("<<wd<<", "<<ht<<", "<<bin<<", "<<type<<") = "<<result);
+
+        /** create a dummy window. **/
+        cv::Size sz(wd, ht);
+		cv::Mat image(sz, CV_8UC1, 1);
+		image.setTo(50);
+        cv::String win_name = "ZWO ASI";
+        cv::namedWindow(win_name);
+        cv::imshow(win_name, image);
+        cv::waitKey(0);
+        cv::destroyWindow(win_name);
+
+        /** clean up and go home. **/
     	ASICloseCamera(kCameraNumber);
     	LOG("Closed camera.");
         LOG("Finished.");
