@@ -9,6 +9,8 @@ drive the zwo asi astrophotography camera.
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc.hpp>
 #include <sstream>
+#include <chrono>
+#include <thread>
 
 #include <ASICamera2.h>
 
@@ -60,13 +62,22 @@ public:
         }
 
         /** open the camera for capturing. **/
-		ASI_ERROR_CODE result = ASIOpenCamera(kCameraNumber);
+		auto result = ASIOpenCamera(kCameraNumber);
 		if (result != ASI_SUCCESS) {
             LOG("Failed to open camera.");
             LOG("  ASIOpenCamera("<<kCameraNumber<<"): "<<result);
             return;
 		}
 		LOG("Opened camera.");
+
+		/** initialize camera. **/
+    	result = ASIInitCamera(kCameraNumber);
+		if (result != ASI_SUCCESS) {
+            LOG("Failed to initialize camera.");
+            LOG("  ASIInitCamera("<<kCameraNumber<<"): "<<result);
+            return;
+        }
+        LOG("Initialized camera.");
 
         /** enumerate all control capabilities and current settings. **/
         int num_controls = 0;
@@ -75,9 +86,9 @@ public:
         {
             ASI_CONTROL_CAPS controls;
             ASIGetControlCaps(kCameraNumber, i, &controls);
-            ASI_CONTROL_TYPE control_type = controls.ControlType;
+            auto control_type = controls.ControlType;
             long control_value = controls.DefaultValue;
-            ASI_BOOL control_auto = controls.IsAutoSupported;
+            auto control_auto = controls.IsAutoSupported;
             result = ASIGetControlValue(kCameraNumber, control_type, &control_value, &control_auto);
             if (result == ASI_SUCCESS) {
                 LOG("Control["<<i<<"]: "<<controls.Name<<": value: "<<control_value<<" auto: "<<control_auto);
@@ -102,7 +113,7 @@ public:
         int wd = 0;
         int ht = 0;
         int bin = 0;
-        ASI_IMG_TYPE type = ASI_IMG_END;
+        auto type = ASI_IMG_END;
         result = ASIGetROIFormat(kCameraNumber, &wd, &ht, &bin, &type);
         if (result == ASI_SUCCESS) {
             const char* image_types[] = {"raw8", "rgb24", "raw16", "y8"};
@@ -115,25 +126,70 @@ public:
             LOG("  ASIGetROIFormat("<<kCameraNumber<<"): "<<result);
         }
 
-        /** change to bin 2. **/
+        /** change to bin 2 and raw16. **/
         wd /= 2;
         ht /= 2;
         bin = 2;
+        type = ASI_IMG_RAW16;
         result = ASISetROIFormat(kCameraNumber, wd, ht, bin, type);
-        LOG("=WIP=: force bin=2.");
+        LOG("=WIP=: force bin=2 and raw16.");
         LOG("  ASISetROIFormat("<<wd<<", "<<ht<<", "<<bin<<", "<<type<<") = "<<result);
 
-        /** create a dummy window. **/
-        cv::Size sz(wd, ht);
-		cv::Mat image(sz, CV_8UC1, 1);
-		image.setTo(50);
+        /** wip: try to avoid exposure fail. **/
+    	ASISetControlValue(kCameraNumber, ASI_GAIN, 100, ASI_FALSE);
+
+    	/** set exposure time in microseconds. **/
+	    ASISetControlValue(kCameraNumber, ASI_EXPOSURE, 53*1000, ASI_FALSE);
+
+        ASISetControlValue(kCameraNumber, ASI_BANDWIDTHOVERLOAD, 40, ASI_FALSE);
+
+        /** create a buffer for the camera image. **/
+        const int bytes_per_pixel = 2;
+        int cam_sz = wd * ht * bytes_per_pixel;
+        auto cam_buffer = new std::uint8_t[cam_sz];
+        std::memset(cam_buffer, 50, cam_sz);
+
+        /** start the exposure. wait for it to finish. **/
+        auto status = ASI_EXP_WORKING;
+        ASIStartExposure(kCameraNumber, ASI_FALSE);
+        for(;;) {
+            ASIGetExpStatus(kCameraNumber, &status);
+            if (status != ASI_EXP_WORKING) {
+                break;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        LOG("ASIGetExpStatus()="<<status);
+   		if (status == ASI_EXP_SUCCESS) {
+            result = ASIGetDataAfterExp(kCameraNumber, cam_buffer, cam_sz);
+            LOG("ASIGetDataAfterExp()="<<result);
+        }
+
+        /** create an image buffer for the window. **/
+        cv::Size win_sz(wd, ht);
+		cv::Mat win_image(win_sz, CV_16UC1);
+
+		/** copy the camera image to the window image. **/
+		int row_sz = wd * bytes_per_pixel;
+		auto src = cam_buffer;
+		for (int y = 0; y < ht; ++y) {
+		    auto dst = win_image.ptr(y);
+		    std::memcpy(dst, src, row_sz);
+		    src += row_sz;
+		}
+
+        /** create a window. **/
         cv::String win_name = "ZWO ASI";
         cv::namedWindow(win_name);
-        cv::imshow(win_name, image);
+        cv::moveWindow(win_name, 50, 50);
+        cv::imshow(win_name, win_image);
+
+        /** wait for user input. **/
         cv::waitKey(0);
-        cv::destroyWindow(win_name);
 
         /** clean up and go home. **/
+        cv::destroyWindow(win_name);
+        delete[] cam_buffer;
     	ASICloseCamera(kCameraNumber);
     	LOG("Closed camera.");
         LOG("Finished.");
