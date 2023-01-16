@@ -80,7 +80,7 @@ public:
         LOG("Initialized camera.");
 
         /** enumerate all control capabilities and current settings. **/
-        int num_controls = 0;
+        /*int num_controls = 0;
         ASIGetNumOfControls(kCameraNumber, &num_controls);
         for (int i = 0; i < num_controls; i++)
         {
@@ -95,10 +95,10 @@ public:
             } else {
                 LOG("Control["<<i<<"]: "<<controls.Name<<": failure: "<<result);
             }
-        }
+        }*/
 
         /** enumerate all supported binnings. **/
-        std::stringstream supported_bins;
+        /*std::stringstream supported_bins;
         const int kMaxBins = sizeof(camera_info.SupportedBins);
         for (int i = 0; i < kMaxBins; ++i) {
             int bin = camera_info.SupportedBins[i];
@@ -107,9 +107,29 @@ public:
             }
             supported_bins << " " << bin;
         }
-        LOG("Supported binning modes:"<<supported_bins.str());
+        LOG("Supported binning modes:"<<supported_bins.str());*/
 
-        /** show the default format. **/
+        /** gain 100 probably means no software gain. **/
+    	ASISetControlValue(kCameraNumber, ASI_GAIN, 100, ASI_FALSE);
+    	/** exposure time is in microseconds. **/
+	    ASISetControlValue(kCameraNumber, ASI_EXPOSURE, 320*1000, ASI_FALSE);
+	    /** the scale seems to be 1 to 99 relative to green. defaults are 52,95. **/
+    	ASISetControlValue(kCameraNumber, ASI_WB_R, 52, ASI_FALSE);
+    	ASISetControlValue(kCameraNumber, ASI_WB_B, 95, ASI_FALSE);
+    	/** no idea what this is. something about usb transfer speed. **/
+        ASISetControlValue(kCameraNumber, ASI_BANDWIDTHOVERLOAD, 40, ASI_FALSE);
+        /** no flipping. **/
+        ASISetControlValue(kCameraNumber, ASI_FLIP, 0, ASI_FALSE);
+        /** these auto settings should not be in use by the camera. **/
+        ASISetControlValue(kCameraNumber, ASI_AUTO_MAX_GAIN, 0, ASI_FALSE);
+        ASISetControlValue(kCameraNumber, ASI_AUTO_MAX_EXP, 0, ASI_FALSE);
+        ASISetControlValue(kCameraNumber, ASI_AUTO_TARGET_BRIGHTNESS, 0, ASI_FALSE);
+        /** no idea what high speed mode is. **/
+        ASISetControlValue(kCameraNumber, ASI_HIGH_SPEED_MODE, 0, ASI_FALSE);
+        /** no idea what mono binning is. **/
+        ASISetControlValue(kCameraNumber, ASI_MONO_BIN, 0, ASI_FALSE);
+
+        /** get the default resolution. **/
         int wd = 0;
         int ht = 0;
         int bin = 0;
@@ -126,28 +146,42 @@ public:
             LOG("  ASIGetROIFormat("<<kCameraNumber<<"): "<<result);
         }
 
-        /** change to bin 2 and raw16. **/
-        wd /= 2;
-        ht /= 2;
-        bin = 2;
-        type = ASI_IMG_RAW16;
+        /** set camera parameters **/
+
+        /** change mode and binning. **/
+        int bytes_per_pixel = 0;
+        int cv_type = 0;
+        if (0) {
+            LOG("Using Raw8.");
+            bytes_per_pixel = 1;
+            type = ASI_IMG_RAW8;
+            cv_type = CV_8UC1;
+        } else if (0) {
+            LOG("Using Raw16.");
+            bytes_per_pixel = 2;
+            type = ASI_IMG_RAW16;
+            cv_type = CV_16UC1;
+        } else if (1) {
+            LOG("Using Rgb24.");
+            bytes_per_pixel = 3;
+            type = ASI_IMG_RGB24;
+            cv_type = CV_8UC3;
+        }
+        if (1) {
+            LOG("Using bin=1");
+            bin = 1;
+        } else if(1) {
+            LOG("Using bin=2");
+            wd /= 2;
+            ht /= 2;
+            bin = 2;
+        }
         result = ASISetROIFormat(kCameraNumber, wd, ht, bin, type);
-        LOG("=WIP=: force bin=2 and raw16.");
-        LOG("  ASISetROIFormat("<<wd<<", "<<ht<<", "<<bin<<", "<<type<<") = "<<result);
-
-        /** wip: try to avoid exposure fail. **/
-    	ASISetControlValue(kCameraNumber, ASI_GAIN, 100, ASI_FALSE);
-
-    	/** set exposure time in microseconds. **/
-	    ASISetControlValue(kCameraNumber, ASI_EXPOSURE, 53*1000, ASI_FALSE);
-
-        ASISetControlValue(kCameraNumber, ASI_BANDWIDTHOVERLOAD, 40, ASI_FALSE);
+        LOG("ASISetROIFormat("<<wd<<", "<<ht<<", "<<bin<<", "<<type<<") = "<<result);
 
         /** create a buffer for the camera image. **/
-        const int bytes_per_pixel = 2;
         int cam_sz = wd * ht * bytes_per_pixel;
         auto cam_buffer = new std::uint8_t[cam_sz];
-        std::memset(cam_buffer, 50, cam_sz);
 
         /** start the exposure. wait for it to finish. **/
         auto status = ASI_EXP_WORKING;
@@ -165,18 +199,59 @@ public:
             LOG("ASIGetDataAfterExp()="<<result);
         }
 
+        if (type == ASI_IMG_RAW16) {
+            int minr = 65535;
+            int maxr = 0;
+            int ming = 65535;
+            int maxg = 0;
+            int minb = 65535;
+            int maxb = 0;
+            std::int64_t sumr = 0;
+            std::int64_t sumg = 0;
+            std::int64_t sumb = 0;
+            auto ptr = (std::uint16_t *) cam_buffer;
+            for (int y = 0; y < ht; y += 2) {
+                for (int x = 0; x < wd; x += 2) {
+                    int r = (unsigned int) ptr[0];
+                    int g1 = (unsigned int) ptr[1];
+                    int g2 = (unsigned int) ptr[wd];
+                    int b = (unsigned int) ptr[wd+1];
+                    minr = std::min(minr, r);
+                    maxr = std::max(maxr, r);
+                    ming = std::min(ming, g1);
+                    maxg = std::max(maxg, g1);
+                    ming = std::min(ming, g2);
+                    maxg = std::max(maxg, g2);
+                    minb = std::min(minb, b);
+                    maxb = std::max(maxb, b);
+                    sumr += r;
+                    sumg += g1 + g2;
+                    sumb += b;
+                    ptr += 2;
+                }
+            }
+            int npixels = wd * ht;
+            int avgr = sumr / npixels;
+            int avgg = sumg / (2*npixels);
+            int avgb = sumb / npixels;
+            LOG("r: "<<minr<<" "<<avgr<<" "<<maxr);
+            LOG("g: "<<ming<<" "<<avgg<<" "<<maxg);
+            LOG("b: "<<minb<<" "<<avgb<<" "<<maxb);
+        }
+
         /** create an image buffer for the window. **/
         cv::Size win_sz(wd, ht);
-		cv::Mat win_image(win_sz, CV_16UC1);
+		cv::Mat win_image(win_sz, cv_type);
 
 		/** copy the camera image to the window image. **/
-		int row_sz = wd * bytes_per_pixel;
+		memcpy(win_image.data, cam_buffer, cam_sz);
+		/*int row_sz = wd * bytes_per_pixel;
 		auto src = cam_buffer;
 		for (int y = 0; y < ht; ++y) {
 		    auto dst = win_image.ptr(y);
 		    std::memcpy(dst, src, row_sz);
 		    src += row_sz;
-		}
+		}*/
 
         /** create a window. **/
         cv::String win_name = "ZWO ASI";
