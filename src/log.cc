@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2012-2021 tim cotter. All rights reserved.
+Copyright (C) 2012-2024 tim cotter. All rights reserved.
 */
 
 /**

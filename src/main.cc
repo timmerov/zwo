@@ -1,5 +1,5 @@
 /*
-Copyright (C) 2012-2023 tim cotter. All rights reserved.
+Copyright (C) 2012-2024 tim cotter. All rights reserved.
 */
 
 /**
@@ -278,7 +278,7 @@ int main(
     (void) argc;
     (void) argv;
 
-    zwo_log::init("rawsome.log");
+    zwo_log::init("zwo.log");
 
     Zwo zwo;
     zwo.run();
