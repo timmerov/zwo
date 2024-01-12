@@ -200,46 +200,6 @@ public:
                 //LOG("ASIGetDataAfterExp()="<<result);
             }
 
-            /**if (type == ASI_IMG_RAW16) {
-                int minr = 65535;
-                int maxr = 0;
-                int ming = 65535;
-                int maxg = 0;
-                int minb = 65535;
-                int maxb = 0;
-                std::int64_t sumr = 0;
-                std::int64_t sumg = 0;
-                std::int64_t sumb = 0;
-                auto ptr = (std::uint16_t *) cam_buffer;
-                for (int y = 0; y < ht; y += 2) {
-                    for (int x = 0; x < wd; x += 2) {
-                        int r = (unsigned int) ptr[0];
-                        int g1 = (unsigned int) ptr[1];
-                        int g2 = (unsigned int) ptr[wd];
-                        int b = (unsigned int) ptr[wd+1];
-                        minr = std::min(minr, r);
-                        maxr = std::max(maxr, r);
-                        ming = std::min(ming, g1);
-                        maxg = std::max(maxg, g1);
-                        ming = std::min(ming, g2);
-                        maxg = std::max(maxg, g2);
-                        minb = std::min(minb, b);
-                        maxb = std::max(maxb, b);
-                        sumr += r;
-                        sumg += g1 + g2;
-                        sumb += b;
-                        ptr += 2;
-                    }
-                }
-                int npixels = wd * ht;
-                int avgr = sumr / npixels;
-                int avgg = sumg / (2*npixels);
-                int avgb = sumb / npixels;
-                LOG("r: "<<minr<<" "<<avgr<<" "<<maxr);
-                LOG("g: "<<ming<<" "<<avgg<<" "<<maxg);
-                LOG("b: "<<minb<<" "<<avgb<<" "<<maxb);
-            }**/
-
             /** copy the bayer camera image to the window image. **/
             memcpy(win_image_bayer.data, cam_buffer, cam_sz);
 
