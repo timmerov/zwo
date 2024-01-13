@@ -219,7 +219,11 @@ public:
         cv::Mat bayer(win_sz, cv_type_bayer);
 
         /** buffer to convert to rgb using cv. **/
-        cv::Mat cam_rgb24(win_sz, cv_type_rgb);
+        cv::Mat cam_rgb48(win_sz, cv_type_rgb);
+
+        /** buffer for focus. **/
+        cv::Mat focus1(win_sz, CV_16UC1);
+        cv::Mat focus2(win_sz, CV_16UC1);
 
         /** show frames until use hits a key. **/
         for(;;) {
@@ -243,10 +247,20 @@ public:
             convert the bayer image to rgb.
             despite the name RGB the format in memory is BGR.
             **/
-            cv::cvtColor(bayer, cam_rgb24, cv::COLOR_BayerRG2RGB);
+            cv::cvtColor(bayer, cam_rgb48, cv::COLOR_BayerRG2RGB);
+
+            /** check blurriness **/
+            cv::cvtColor(cam_rgb48, focus1, cv::COLOR_RGB2GRAY);
+            cv::Laplacian(focus1, focus2, CV_64F, 3, 1, 0);
+            cv::Scalar mean;
+            cv::Scalar stddev;
+            cv::meanStdDev(focus2, mean, stddev);
+            auto blurriness = 1000.0 / stddev[0];
+            LOG("blurriness: "<<blurriness);
+
 
             /** adjust BGR colors **/
-            auto ptr = (std::uint16_t *) cam_rgb24.data;
+            /*auto ptr = (std::uint16_t *) cam_rgb48.data;
             for (int y = 0; y < ht; ++y) {
                 for (int x = 0; x < wd; ++x) {
                     int r0 = ptr[2];
@@ -263,7 +277,7 @@ public:
                     ptr[0] = b1;
                     ptr += 3;
                 }
-            }
+            }*/
             /*ptr += 3 * (wd/2 + wd*ht/2);
             int r = ptr[2];
             int g = ptr[1];
@@ -271,7 +285,7 @@ public:
             LOG("rgb= "<<r<<" "<<g<<" "<<b);*/
 
             /** show it. **/
-            cv::imshow(win_name, cam_rgb24);
+            cv::imshow(win_name, cam_rgb48);
 
             /** wait for user input. **/
             int key = cv::waitKey(30);
