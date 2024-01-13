@@ -4,6 +4,46 @@ Copyright (C) 2012-2024 tim cotter. All rights reserved.
 
 /**
 drive the zwo asi astrophotography camera.
+
+data dump:
+led display frequencies:
+700nm R
+546nm G
+436nm B
+
+the sun is not an average star.
+but it's pretty close to the joint index.
+ie 10% of stars are a LOT brighter.
+and 90% of stars are a somewhat dimmer.
+the visible spectrum is from 380nm to 780nm.
+roughly 2x wavelength.
+irradiance at 380 is about 1500 W/m^2.
+and at 780 is about 1300 W/m^2.
+but that's energy.
+cameras are counting photons.
+there are 2x as many photons per watt at 380 than at 780.
+so there are about 2.3x as many photons from the sun at 380 than at 780.
+
+the zwo has a sensitivity graph that's roughly as follows:
+
+wavelength  red     green   blue
+400         0.09    0.08    0.40
+425         0.06    0.06    0.52
+450         0.03    0.08    0.65
+475         0.04    0.40    0.65
+500         0.05    0.83    0.43
+525         0.09    0.93    0.21
+550         0.08    0.90    0.10
+575         0.40    0.80    0.06
+600         1.00    0.52    0.04
+625         0.97    0.25    0.04
+650         0.96    0.19    0.08
+675         0.83    0.24    0.10
+700         0.80    0.35    0.10
+725         0.82    0.38    0.08
+750         0.75    0.40    0.08
+775         0.69    0.45    0.15
+800         0.60    0.48    0.42
 **/
 
 #include <opencv2/opencv.hpp>
@@ -112,7 +152,7 @@ public:
         /** gain 100 probably means no software gain. **/
     	ASISetControlValue(kCameraNumber, ASI_GAIN, 100, ASI_FALSE);
     	/** exposure time is in microseconds. **/
-	    ASISetControlValue(kCameraNumber, ASI_EXPOSURE, 30*1000, ASI_FALSE);
+	    ASISetControlValue(kCameraNumber, ASI_EXPOSURE, 18*1000, ASI_FALSE);
 	    /** the scale seems to be 1 to 99 relative to green. defaults are 52,95. **/
     	ASISetControlValue(kCameraNumber, ASI_WB_R, 52, ASI_FALSE);
     	ASISetControlValue(kCameraNumber, ASI_WB_B, 95, ASI_FALSE);
@@ -168,19 +208,18 @@ public:
         result = ASISetROIFormat(kCameraNumber, wd, ht, bin, type);
         LOG("ASISetROIFormat("<<wd<<", "<<ht<<", "<<bin<<", "<<type<<") = "<<result);
 
-        /** create a buffer for the camera image. **/
-        int cam_sz = wd * ht * bytes_per_pixel;
-        auto cam_buffer = new std::uint8_t[cam_sz];
-
         /** create a window. **/
         cv::String win_name = "ZWO ASI";
         cv::namedWindow(win_name);
         cv::moveWindow(win_name, 50, 50);
 
-        /** create an image buffer for the window. **/
+        /** we can load the camera image directly into a cv bayer array. **/
         cv::Size win_sz(wd, ht);
-        cv::Mat win_image_bayer(win_sz, cv_type_bayer);
-        cv::Mat win_image_rgb(win_sz, cv_type_rgb);
+        int bayer_sz = wd * ht * bytes_per_pixel;
+        cv::Mat bayer(win_sz, cv_type_bayer);
+
+        /** buffer to convert to rgb using cv. **/
+        cv::Mat cam_rgb24(win_sz, cv_type_rgb);
 
         /** show frames until use hits a key. **/
         for(;;) {
@@ -196,18 +235,43 @@ public:
             }
             //LOG("ASIGetExpStatus()="<<status);
             if (status == ASI_EXP_SUCCESS) {
-                result = ASIGetDataAfterExp(kCameraNumber, cam_buffer, cam_sz);
+                result = ASIGetDataAfterExp(kCameraNumber, bayer.data, bayer_sz);
                 //LOG("ASIGetDataAfterExp()="<<result);
             }
 
-            /** copy the bayer camera image to the window image. **/
-            memcpy(win_image_bayer.data, cam_buffer, cam_sz);
+            /**
+            convert the bayer image to rgb.
+            despite the name RGB the format in memory is BGR.
+            **/
+            cv::cvtColor(bayer, cam_rgb24, cv::COLOR_BayerRG2RGB);
 
-            /** convert the bayer image to rgb. **/
-            cv::cvtColor(win_image_bayer, win_image_rgb, cv::COLOR_BayerRG2RGB);
+            /** adjust BGR colors **/
+            auto ptr = (std::uint16_t *) cam_rgb24.data;
+            for (int y = 0; y < ht; ++y) {
+                for (int x = 0; x < wd; ++x) {
+                    int r0 = ptr[2];
+                    int g0 = ptr[1];
+                    int b0 = ptr[0];
+                    int r1 = ( 61*r0 -  28*g0 -   7*b0)/100;
+                    int g1 = (-23*r0 +  76*g0 -  19*b0)/100;
+                    int b1 = (  0*r0 -  18*g0 + 100*b0)/100;
+                    r1 = std::max(std::min(r1, 65535),0);
+                    g1 = std::max(std::min(g1, 65535),0);
+                    b1 = std::max(std::min(b1, 65535),0);
+                    ptr[2] = r1;
+                    ptr[1] = g1;
+                    ptr[0] = b1;
+                    ptr += 3;
+                }
+            }
+            /*ptr += 3 * (wd/2 + wd*ht/2);
+            int r = ptr[2];
+            int g = ptr[1];
+            int b = ptr[0];
+            LOG("rgb= "<<r<<" "<<g<<" "<<b);*/
 
             /** show it. **/
-            cv::imshow(win_name, win_image_rgb);
+            cv::imshow(win_name, cam_rgb24);
 
             /** wait for user input. **/
             int key = cv::waitKey(30);
@@ -219,7 +283,6 @@ public:
 
         /** clean up and go home. **/
         cv::destroyWindow(win_name);
-        delete[] cam_buffer;
     	ASICloseCamera(kCameraNumber);
     	LOG("Closed camera.");
         LOG("Finished.");
