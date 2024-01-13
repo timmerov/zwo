@@ -44,6 +44,46 @@ wavelength  red     green   blue
 750         0.75    0.40    0.08
 775         0.69    0.45    0.15
 800         0.60    0.48    0.42
+
+the original idea was to use this data to divine the color conversion matrix.
+ha! it didn't work worth doo doo.
+
+so i collimated the camera and pointed it at the computer screen.
+it was very out of focus.
+i showed the camera black red green and blue.
+and printed the response.
+that gave a matrix that converted actual rgb to observed rgb.
+caution here: it's easy to transpose the matrix.
+invert the matrix to get the color conversion matrix from observed rgb to actual rgb.
+here's what i got:
+    // subtract black.
+    r0 -= 871;
+    g0 -= 1259;
+    b0 -= 1799;
+    // convert observed rgb to actual srgb.
+    int r1 = (100*r0 -  16*g0 -   0*b0)/100;
+    int g1 = (-22*r0 +  63*g0 -   8*b0)/100;
+    int b1 = (  2*r0 -  33*g0 +  83*b0)/100;
+images captured from the screen are reasonable.
+over-exposed is pink.
+and there's no gamma correction.
+images captored from elsewhere are very very red.
+maybe it's picking up a lot more infrared from the display?
+
+this matrix isn't bad for real images.
+(once i fixed the transpose error.)
+it comes from the sensitivity graph.
+    int r1 = ( 79*r0 -  32*g0 +   1*b0)/100;
+    int g1 = (-32*r0 +  83*g0 -   2*b0)/100;
+    int b1 = ( -9*r0 -  18*g0 + 100*b0)/100;
+
+this matrix is not as good as the previous.
+it's more blue.
+it comes from weighting the sensitivity graph by the relative energy flux of the sun at each frequency.
+    int r1 = ( 61*r0 -  23*g0 +   0*b0)/100;
+    int g1 = (-28*r0 +  76*g0 -  18*b0)/100;
+    int b1 = ( -7*r0 -  19*g0 + 100*b0)/100;
+
 **/
 
 #include <opencv2/opencv.hpp>
@@ -152,7 +192,7 @@ public:
         /** gain 100 probably means no software gain. **/
     	ASISetControlValue(kCameraNumber, ASI_GAIN, 100, ASI_FALSE);
     	/** exposure time is in microseconds. **/
-	    ASISetControlValue(kCameraNumber, ASI_EXPOSURE, 18*1000, ASI_FALSE);
+	    ASISetControlValue(kCameraNumber, ASI_EXPOSURE, 14*1000, ASI_FALSE);
 	    /** the scale seems to be 1 to 99 relative to green. defaults are 52,95. **/
     	ASISetControlValue(kCameraNumber, ASI_WB_R, 52, ASI_FALSE);
     	ASISetControlValue(kCameraNumber, ASI_WB_B, 95, ASI_FALSE);
@@ -250,25 +290,30 @@ public:
             cv::cvtColor(bayer, cam_rgb48, cv::COLOR_BayerRG2RGB);
 
             /** check blurriness **/
-            cv::cvtColor(cam_rgb48, focus1, cv::COLOR_RGB2GRAY);
+            /*cv::cvtColor(cam_rgb48, focus1, cv::COLOR_RGB2GRAY);
             cv::Laplacian(focus1, focus2, CV_64F, 3, 1, 0);
             cv::Scalar mean;
             cv::Scalar stddev;
             cv::meanStdDev(focus2, mean, stddev);
             auto blurriness = 1000.0 / stddev[0];
-            LOG("blurriness: "<<blurriness);
+            LOG("blurriness: "<<blurriness);*/
 
 
             /** adjust BGR colors **/
-            /*auto ptr = (std::uint16_t *) cam_rgb48.data;
+            auto ptr = (std::uint16_t *) cam_rgb48.data;
             for (int y = 0; y < ht; ++y) {
                 for (int x = 0; x < wd; ++x) {
                     int r0 = ptr[2];
                     int g0 = ptr[1];
                     int b0 = ptr[0];
-                    int r1 = ( 61*r0 -  28*g0 -   7*b0)/100;
-                    int g1 = (-23*r0 +  76*g0 -  19*b0)/100;
-                    int b1 = (  0*r0 -  18*g0 + 100*b0)/100;
+                    /** subtract black. **/
+                    r0 -= 871;
+                    g0 -= 1259;
+                    b0 -= 1799;
+                    /** convert observed rgb to srgb using best guess matrix. **/
+                    int r1 = (100*r0 -  16*g0 -   0*b0)/100;
+                    int g1 = (-22*r0 +  63*g0 -   8*b0)/100;
+                    int b1 = (  2*r0 -  33*g0 +  83*b0)/100;
                     r1 = std::max(std::min(r1, 65535),0);
                     g1 = std::max(std::min(g1, 65535),0);
                     b1 = std::max(std::min(b1, 65535),0);
@@ -277,7 +322,7 @@ public:
                     ptr[0] = b1;
                     ptr += 3;
                 }
-            }*/
+            }
             /*ptr += 3 * (wd/2 + wd*ht/2);
             int r = ptr[2];
             int g = ptr[1];
