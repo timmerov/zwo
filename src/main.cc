@@ -89,8 +89,6 @@ it comes from weighting the sensitivity graph by the relative energy flux of the
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc.hpp>
 #include <sstream>
-#include <chrono>
-#include <thread>
 
 #include <ASICamera2.h>
 
@@ -276,7 +274,7 @@ public:
                 if (status != ASI_EXP_WORKING) {
                     break;
                 }
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                agm::sleep::milliseconds(1);
             }
             //LOG("ASIGetExpStatus()="<<status);
             if (status == ASI_EXP_SUCCESS) {
@@ -301,7 +299,7 @@ public:
 
 
             /** adjust BGR colors **/
-            auto ptr = (std::uint16_t *) cam_rgb48.data;
+            auto ptr = (agm::uint16 *) cam_rgb48.data;
             for (int y = 0; y < ht; ++y) {
                 for (int x = 0; x < wd; ++x) {
                     int r0 = ptr[2];
