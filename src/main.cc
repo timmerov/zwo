@@ -94,7 +94,8 @@ it comes from weighting the sensitivity graph by the relative energy flux of the
 
 #include <ASICamera2.h>
 
-#include "log.h"
+#include <aggiornamento/aggiornamento.h>
+#include <aggiornamento/log.h>
 
 namespace {
 class Zwo {
@@ -355,7 +356,7 @@ int main(
     (void) argc;
     (void) argv;
 
-    zwo_log::init("zwo.log");
+    agm::log::init(TARGET_NAME ".log");
 
     Zwo zwo;
     zwo.run();

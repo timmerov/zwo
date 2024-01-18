@@ -19,25 +19,27 @@ file(GLOB_RECURSE THIS_HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/*.h)
 # add the executable with source and includes in separate groups
 add_executable(${THIS_TARGET_NAME} ${THIS_SOURCE} ${THIS_HEADERS})
 
-# add _d to the debug target name
+# add _d to the debug target name.
 set_target_properties(${THIS_TARGET_NAME} PROPERTIES DEBUG_POSTFIX _d)
 
-# add _d to the debug target name
+# put the binary in bin.
 set_target_properties(${THIS_TARGET_NAME} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin
 )
 
-# define the target in the source
-target_compile_definitions(${THIS_TARGET_NAME} PRIVATE AGM_TARGET=${THIS_TARGET_NAME})
+# define the target in the source.
+target_compile_definitions(${THIS_TARGET_NAME} PRIVATE TARGET_NAME=\"${THIS_TARGET_NAME}\")
 
-# you need to set this:
+# some directories.
 set(ZWO_ASI_DIR "/home/timmer/Documents/code/astrophotography/ASI_linux_mac_SDK_V1.26")
+set(AGM_DIR "${CMAKE_SOURCE_DIR}/../aggiornamento/agm")
 
 # find the opencv package
 find_package(OpenCV REQUIRED)
 
 # add the include directories
 set(INCS
+    ${AGM_DIR}/inc
     ${OpenCV_INCLUDE_DIRS}
     ${ZWO_ASI_DIR}/include
 )
@@ -45,6 +47,7 @@ include_directories(${INCS})
 
 # add the libraries
 set(LIBS
+    ${AGM_DIR}/lib/libagm.a
     ${OpenCV_LIBS}
     ${ZWO_ASI_DIR}/lib/x64/libASICamera2.so
 )
