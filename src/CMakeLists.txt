@@ -39,16 +39,17 @@ find_package(OpenCV REQUIRED)
 
 # add the include directories
 set(INCS
-    ${AGM_DIR}/inc
     ${OpenCV_INCLUDE_DIRS}
     ${ZWO_ASI_DIR}/include
+    ${AGM_DIR}/inc
+    ${CMAKE_CURRENT_SOURCE_DIR}
 )
 include_directories(${INCS})
 
 # add the libraries
 set(LIBS
-    ${AGM_DIR}/lib/libagm.a
     ${OpenCV_LIBS}
     ${ZWO_ASI_DIR}/lib/x64/libASICamera2.so
+    ${AGM_DIR}/lib/libagm.a
 )
 target_link_libraries(${THIS_TARGET_NAME} ${LIBS})

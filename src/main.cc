@@ -94,6 +94,10 @@ it comes from weighting the sensitivity graph by the relative energy flux of the
 
 #include <aggiornamento/aggiornamento.h>
 #include <aggiornamento/log.h>
+#include <aggiornamento/thread.h>
+
+#include <shared/image_double_buffer.h>
+
 
 namespace {
 class Zwo {
@@ -348,6 +352,11 @@ public:
 };
 }
 
+/** threads defined elsewhere. **/
+extern agm::Thread *createCaptureThread(ImageDoubleBuffer *image_double_buffer);
+extern agm::Thread *createWindowThread(ImageDoubleBuffer *image_double_buffer);
+
+/** start logging and all threads. **/
 int main(
     int argc, char *argv[]
 ) noexcept {
@@ -356,8 +365,25 @@ int main(
 
     agm::log::init(TARGET_NAME ".log");
 
-    Zwo zwo;
-    zwo.run();
+    /*Zwo zwo;
+    zwo.run();*/
+
+    /** create the containers. **/
+    auto image_double_buffer = ImageDoubleBuffer::create();
+
+    /** store the containers. **/
+    std::vector<agm::Container *> containers;
+    containers.push_back(image_double_buffer);
+
+    /** create the threads. **/
+    std::vector<agm::Thread *> threads;
+    threads.push_back(createCaptureThread(image_double_buffer));
+    threads.push_back(createWindowThread(image_double_buffer));
+
+    // run the thread for 3 seconds.
+    agm::Thread::startAll(threads, containers);
+    agm::sleep::seconds(3);
+    agm::Thread::stopAll(threads, containers);
 
     return 0;
 }
