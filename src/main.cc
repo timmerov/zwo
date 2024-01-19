@@ -98,7 +98,7 @@ it comes from weighting the sensitivity graph by the relative energy flux of the
 
 #include <shared/image_double_buffer.h>
 
-
+#if 0
 namespace {
 class Zwo {
 public:
@@ -351,6 +351,7 @@ public:
     }
 };
 }
+#endif
 
 /** threads defined elsewhere. **/
 extern agm::Thread *createCaptureThread(ImageDoubleBuffer *image_double_buffer);
@@ -380,10 +381,8 @@ int main(
     threads.push_back(createCaptureThread(image_double_buffer));
     threads.push_back(createWindowThread(image_double_buffer));
 
-    // run the thread for 3 seconds.
-    agm::Thread::startAll(threads, containers);
-    agm::sleep::seconds(3);
-    agm::Thread::stopAll(threads, containers);
+    /** run the threads until they stop. **/
+    agm::Thread::runAll(threads, containers);
 
     return 0;
 }

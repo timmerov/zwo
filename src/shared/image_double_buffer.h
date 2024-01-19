@@ -11,9 +11,10 @@ double buffer holds the images produced by the capture thread and displayed by t
 /** hold one image. **/
 class ImageBuffer {
 public:
-    int wd_ = 0;
-    int ht_ = 0;
-    agm::uint8 *data_ = nullptr;
+    int width_ = 0;
+    int height_ = 0;
+    int bytes_ = 0;
+    agm::uint16 *data_ = nullptr;
 
     ImageBuffer() noexcept = default;
     ~ImageBuffer() noexcept;
