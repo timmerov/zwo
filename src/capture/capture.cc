@@ -35,6 +35,10 @@ public:
 
     virtual void begin() noexcept {
         LOG("CaptureThread.");
+        /**
+        capture thread starts with buffer 0.
+        window thread starts with buffer 1.
+        **/
         img_ = image_double_buffer_->acquire(0);
 
         /** find the camera. **/
@@ -140,8 +144,7 @@ public:
         }
 		auto result = ASI_ERROR_END;
         if (status == ASI_EXP_SUCCESS) {
-            auto data = (agm::uint8 *) img_->data_;
-            result = ASIGetDataAfterExp(kCameraNumber, data, img_->bytes_);
+            result = ASIGetDataAfterExp(kCameraNumber, img_->bayer_.data, img_->bytes_);
         }
         if (result != ASI_SUCCESS) {
             LOG("CaptureThread Aborting.");
@@ -155,7 +158,7 @@ public:
     }
 
     void allocateBuffer() noexcept {
-        if (img_->data_) {
+        if (img_->width_) {
             return;
         }
 
@@ -164,7 +167,7 @@ public:
         img_->width_ = width_;
         img_->height_ = height_;
         img_->bytes_ = kBytesPerPixel * sz;
-        img_->data_ = new(std::nothrow) agm::uint16[sz];
+        img_->bayer_ = std::move(cv::Mat(height_, width_, CV_16UC1));
     }
 
     virtual void end() noexcept {

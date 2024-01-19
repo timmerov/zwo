@@ -6,6 +6,9 @@ double buffer holds the images produced by the capture thread and displayed by t
 
 #pragma once
 
+#include <opencv2/opencv.hpp>
+#include <opencv2/imgproc.hpp>
+
 #include <aggiornamento/container.h>
 
 /** hold one image. **/
@@ -14,10 +17,10 @@ public:
     int width_ = 0;
     int height_ = 0;
     int bytes_ = 0;
-    agm::uint16 *data_ = nullptr;
+    cv::Mat bayer_;
 
     ImageBuffer() noexcept = default;
-    ~ImageBuffer() noexcept;
+    ~ImageBuffer() noexcept = default;
 };
 
 class ImageDoubleBuffer : public agm::Container {

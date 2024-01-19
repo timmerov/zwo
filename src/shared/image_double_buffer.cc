@@ -25,10 +25,6 @@ namespace {
     };
 }
 
-ImageBuffer::~ImageBuffer() noexcept {
-    delete[] data_;
-}
-
 ImageDoubleBuffer::ImageDoubleBuffer() noexcept :
     agm::Container("ImageDoubleBuffer") {
 }
