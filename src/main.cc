@@ -97,6 +97,7 @@ it comes from weighting the sensitivity graph by the relative energy flux of the
 #include <aggiornamento/thread.h>
 
 #include <shared/image_double_buffer.h>
+#include <shared/settings_buffer.h>
 
 #if 0
 namespace {
@@ -355,8 +356,8 @@ public:
 
 /** threads defined elsewhere. **/
 extern agm::Thread *createCaptureThread(ImageDoubleBuffer *image_double_buffer);
-extern agm::Thread *createWindowThread(ImageDoubleBuffer *image_double_buffer);
-extern agm::Thread *createMenuThread();
+extern agm::Thread *createWindowThread(ImageDoubleBuffer *image_double_buffer, SettingsBuffer *settings_buffer);
+extern agm::Thread *createMenuThread(SettingsBuffer *settings_buffer);
 
 /** start logging and all threads. **/
 int main(
@@ -372,6 +373,7 @@ int main(
 
     /** create the containers. **/
     auto image_double_buffer = ImageDoubleBuffer::create();
+    SettingsBuffer settings_buffer;
 
     /** store the containers. **/
     std::vector<agm::Container *> containers;
@@ -380,8 +382,8 @@ int main(
     /** create the threads. **/
     std::vector<agm::Thread *> threads;
     threads.push_back(createCaptureThread(image_double_buffer));
-    threads.push_back(createWindowThread(image_double_buffer));
-    threads.push_back(createMenuThread());
+    threads.push_back(createWindowThread(image_double_buffer, &settings_buffer));
+    threads.push_back(createMenuThread(&settings_buffer));
 
     /** run the threads until they stop. **/
     agm::Thread::runAll(threads, containers);

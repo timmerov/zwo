@@ -15,6 +15,7 @@ display images in a window.
 #include <aggiornamento/thread.h>
 
 #include <shared/image_double_buffer.h>
+#include <shared/settings_buffer.h>
 
 
 namespace {
@@ -22,6 +23,8 @@ class WindowThread : public agm::Thread {
 public:
     ImageDoubleBuffer *image_double_buffer_ = nullptr;
     ImageBuffer *img_ = nullptr;
+    SettingsBuffer *settings_buffer_ = nullptr;
+    Settings settings_;
     cv::String win_name_ = "ZWO ASI";
     bool first_image_ = false;
     cv::Mat rgb48_;
@@ -30,9 +33,11 @@ public:
     double base_stddev_ = 0.0;
 
     WindowThread(
-        ImageDoubleBuffer *image_double_buffer
+        ImageDoubleBuffer *image_double_buffer,
+        SettingsBuffer *settings_buffer
     ) noexcept : agm::Thread("WindowThread") {
         image_double_buffer_ = image_double_buffer;
+        settings_buffer_ = settings_buffer;
     }
 
     virtual ~WindowThread() = default;
@@ -67,6 +72,9 @@ public:
             LOG("WindowThread Received "<<wd<<"x"<<ht<<".");
         }
 
+        /** copy all of the settings at once. **/
+        copySettings();
+
         /**
         convert the bayer image to rgb.
         despite the name RGB the format in memory is BGR.
@@ -74,7 +82,7 @@ public:
         cv::cvtColor(img_->bayer_, rgb48_, cv::COLOR_BayerRG2RGB);
 
         /** check blurriness **/
-        //checkBlurriness();
+        checkBlurriness();
 
         /** show it. **/
         cv::imshow(win_name_, rgb48_);
@@ -91,7 +99,16 @@ public:
         img_ = image_double_buffer_->swap(img_);
     }
 
+    void copySettings() noexcept {
+        std::lock_guard<std::mutex> lock(settings_buffer_->mutex_);
+        settings_ = *settings_buffer_;
+    }
+
     void checkBlurriness() noexcept {
+        if (settings_.show_focus_ == false) {
+            return;
+        }
+
         /**
         convert to grayscale.
         apply the laplacian convolution.
@@ -121,7 +138,8 @@ public:
 }
 
 agm::Thread *createWindowThread(
-    ImageDoubleBuffer *image_double_buffer
+    ImageDoubleBuffer *image_double_buffer,
+    SettingsBuffer *settings_buffer
 ) noexcept {
-    return new(std::nothrow) WindowThread(image_double_buffer);
+    return new(std::nothrow) WindowThread(image_double_buffer, settings_buffer);
 }
