@@ -74,7 +74,7 @@ public:
         cv::cvtColor(img_->bayer_, rgb48_, cv::COLOR_BayerRG2RGB);
 
         /** check blurriness **/
-        checkBlurriness();
+        //checkBlurriness();
 
         /** show it. **/
         cv::imshow(win_name_, rgb48_);

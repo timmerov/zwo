@@ -356,6 +356,7 @@ public:
 /** threads defined elsewhere. **/
 extern agm::Thread *createCaptureThread(ImageDoubleBuffer *image_double_buffer);
 extern agm::Thread *createWindowThread(ImageDoubleBuffer *image_double_buffer);
+extern agm::Thread *createMenuThread();
 
 /** start logging and all threads. **/
 int main(
@@ -380,6 +381,7 @@ int main(
     std::vector<agm::Thread *> threads;
     threads.push_back(createCaptureThread(image_double_buffer));
     threads.push_back(createWindowThread(image_double_buffer));
+    threads.push_back(createMenuThread());
 
     /** run the threads until they stop. **/
     agm::Thread::runAll(threads, containers);
