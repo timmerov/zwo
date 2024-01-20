@@ -94,6 +94,45 @@ public:
     }
 
     void experiment() noexcept {
+#if 0
+/** derived from dcraw. **/
+void display_gamma_curve(
+    std::vector<int> &curve,
+    double pwr = 1.0/2.222,
+    double ts = 4.5,
+    int imax = 0x10000
+){
+    curve.resize(0x10000);
+
+    #define SQR(x) ((x)*(x))
+    double g2 = 0.0;
+    double g3 = 0.0;
+    double g4 = 0.0;
+
+    double bnd[2] = {0.0, 0.0};
+    double r;
+
+    pwr = pwr;
+    ts = ts;
+    g2 = g3 = g4 = 0;
+    bnd[ts >= 1] = 1;
+    if ((ts-1)*(pwr-1) <= 0) {
+        for (int i = 0; i < 48; ++i) {
+            g2 = (bnd[0] + bnd[1])/2;
+            bnd[(std::pow(g2/ts,-pwr) - 1)/pwr - 1/g2 > -1] = g2;
+        }
+        g3 = g2 / ts;
+        g4 = g2 * (1/pwr - 1);
+    }
+    for (int i = 0; i < 0x10000; ++i) {
+        curve[i] = 0xffff;
+        r = (double) i / imax;
+        if (r < 1) {
+            curve[i] = 0x10000 * (r < g3 ? r*ts : std::pow(r,pwr)*(1+g4)-g4);
+        }
+    }
+}
+#endif
         /**
         examine the gamma table.
         we must do this to convert linear rgb to what's shown on the displays.
@@ -116,8 +155,57 @@ public:
         for (int i = 0; i < 256; ++i) {
             lut[i] = 0;
         }
-        double gamma = 2.2;
-        int sz = 539;
+
+        double gamma = 2.22222;
+        double pwr = 1.0 / gamma;
+        double ts = 4.5;
+#if 0
+        double bnd[2] = {0.0, 0.0};
+        bnd[ts >= 1] = 1;
+
+        double g2 = 0.0;
+        double g3 = 0.0;
+        double g4 = 0.0;
+        if ((ts-1)*(pwr-1) <= 0) {
+            for (int i = 0; i < 48; ++i) {
+                g2 = (bnd[0] + bnd[1])/2;
+                bnd[(std::pow(g2/ts,-pwr) - 1)/pwr - 1/g2 > -1] = g2;
+            }
+            g3 = g2 / ts;
+            g4 = g2 * (1/pwr - 1);
+        }
+        LOG("pwr="<<pwr);
+        LOG("bnd="<<bnd[0]<<" "<<bnd[1]);
+        LOG("g2="<<g2<<" g3="<<g3<<" g4="<<g4);
+#endif
+
+        double g3 = 0.0180539;
+        double g4 = 0.0992964;
+
+        static const int kLutMax = 1124;
+        for (int i = 0; i <= kLutMax; ++i) {
+            double r = double(i) / double(kLutMax);
+            double x;
+            if (r < g3) {
+                x = r*ts;
+            } else {
+                x = std::pow(r, pwr)*(1 + g4) - g4;
+            }
+            x *= 255.0;
+            int ix = std::round(x);
+            ix = std::max(0, std::min(ix, 255));
+            //LOG(i<<": "<<ix);
+            lut[ix] = 1;
+        }
+
+        for (int i = 0; i < 256; ++i) {
+            if (lut[i] == 0) {
+                LOG("lut["<<i<<"]=0");
+            }
+        }
+        LOG("done");
+
+#if 0
         for (int i = 0; i <= sz; ++i) {
             double x = std::pow(double(i)/double(sz), gamma) * 255.0;
             int ix = std::round(x);
@@ -125,12 +213,7 @@ public:
             LOG(i<<": "<<ix);
             lut[ix] = 1;
         }
-        for (int i = 0; i < 256; ++i) {
-            if (lut[i] == 0) {
-                LOG("lut["<<i<<"]=0");
-            }
-        }
-        LOG("done");
+#endif
     }
 };
 }
