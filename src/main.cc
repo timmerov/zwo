@@ -355,7 +355,7 @@ public:
 #endif
 
 /** threads defined elsewhere. **/
-extern agm::Thread *createCaptureThread(ImageDoubleBuffer *image_double_buffer);
+extern agm::Thread *createCaptureThread(ImageDoubleBuffer *image_double_buffer, SettingsBuffer *settings_buffer);
 extern agm::Thread *createWindowThread(ImageDoubleBuffer *image_double_buffer, SettingsBuffer *settings_buffer);
 extern agm::Thread *createMenuThread(SettingsBuffer *settings_buffer);
 
@@ -381,7 +381,7 @@ int main(
 
     /** create the threads. **/
     std::vector<agm::Thread *> threads;
-    threads.push_back(createCaptureThread(image_double_buffer));
+    threads.push_back(createCaptureThread(image_double_buffer, &settings_buffer));
     threads.push_back(createWindowThread(image_double_buffer, &settings_buffer));
     threads.push_back(createMenuThread(&settings_buffer));
 

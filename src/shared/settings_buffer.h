@@ -26,6 +26,8 @@ public:
     ~Settings() noexcept = default;
 
     bool show_focus_ = false;
+    bool auto_exposure_ = true;
+    int exposure_ = 100; /*microseconds*/
 };
 
 class SettingsBuffer : public Settings {

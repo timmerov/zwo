@@ -14,21 +14,33 @@ capture images from the zwo asi astrophotography camera.
 #include <aggiornamento/thread.h>
 
 #include <shared/image_double_buffer.h>
+#include <shared/settings_buffer.h>
 
 
 namespace {
 class CaptureThread : public agm::Thread {
 public:
+    /** share data with the windows thread. **/
     ImageDoubleBuffer *image_double_buffer_ = nullptr;
     ImageBuffer *img_ = nullptr;
-    const int kCameraNumber = 0;
+    /** share data with the menu thread. **/
+    SettingsBuffer *settings_buffer_ = nullptr;
+
+    /** internal fields. **/
+    static const int kCameraNumber = 0;
     int width_ = 0;
     int height_ = 0;
+    bool auto_exposure_ = false;
+    int exposure_ = 0;
+    int over61_ = 0;
+    int under61_ = 0;
 
     CaptureThread(
-        ImageDoubleBuffer *image_double_buffer
+        ImageDoubleBuffer *image_double_buffer,
+        SettingsBuffer *settings_buffer
     ) noexcept : agm::Thread("CaptureThread") {
         image_double_buffer_ = image_double_buffer;
+        settings_buffer_ = settings_buffer;
     }
 
     virtual ~CaptureThread() = default;
@@ -96,8 +108,6 @@ public:
 
         /** gain 100 probably means no software gain. **/
     	ASISetControlValue(kCameraNumber, ASI_GAIN, 100, ASI_FALSE);
-    	/** exposure time is in microseconds. **/
-	    ASISetControlValue(kCameraNumber, ASI_EXPOSURE, 14*1000, ASI_FALSE);
 	    /** the scale seems to be 1 to 99 relative to green. defaults are 52,95. **/
     	ASISetControlValue(kCameraNumber, ASI_WB_R, 52, ASI_FALSE);
     	ASISetControlValue(kCameraNumber, ASI_WB_B, 95, ASI_FALSE);
@@ -126,11 +136,20 @@ public:
             agm::master::setDone();
             return;
         }
+
+        /** start with an exposure of 1 millisecond. **/
+        exposure_ = 100;// 1 * 1000;
     }
 
     virtual void runOnce() noexcept {
         /** ensure we have a buffer to read into. **/
         allocateBuffer();
+
+        /** copy all of the settings at once. **/
+        copySettings();
+
+    	/** exposure time is in microseconds. **/
+	    ASISetControlValue(kCameraNumber, ASI_EXPOSURE, exposure_, ASI_FALSE);
 
         /** capture an image. **/
         auto status = ASI_EXP_WORKING;
@@ -154,6 +173,9 @@ public:
             return;
         }
 
+        /** adjust the exposure time. **/
+        autoAdjustExposure();
+
         img_ = image_double_buffer_->swap(img_);
     }
 
@@ -170,6 +192,98 @@ public:
         img_->bayer_ = std::move(cv::Mat(height_, width_, CV_16UC1));
     }
 
+    void copySettings() noexcept {
+        std::lock_guard<std::mutex> lock(settings_buffer_->mutex_);
+        auto_exposure_ = settings_buffer_->auto_exposure_;
+        exposure_ = settings_buffer_->exposure_;
+    }
+
+    void writeSettings() noexcept {
+        std::lock_guard<std::mutex> lock(settings_buffer_->mutex_);
+        settings_buffer_->exposure_ = exposure_;
+    }
+
+    /**
+    adjust the exposure so the largest value is equally likely
+    to be above or below 61000.
+    which is chosen fairly arbitrarily.
+    **/
+    void autoAdjustExposure() noexcept {
+        if (auto_exposure_ == false) {
+            over61_ = 0;
+            under61_ = 0;
+            return;
+        }
+
+        /** find the maximum pixel value in the image. **/
+        int sz = width_ * height_;
+        int hi = 0;
+        auto src = (agm::uint16 *) img_->bayer_.data;
+        for (int i = 0; i < sz; ++i) {
+            int x = *src++;
+            hi = std::max(hi, x);
+        }
+
+        /** some panics. **/
+        if (hi < 2000) {
+            return;
+        }
+        if (hi < 50000) {
+            exposure_ = exposure_ * 56000 / hi;
+            LOG("new auto exposure="<<exposure_);
+            writeSettings();
+        }
+
+        /** the counts decay over time. **/
+        over61_ = over61_ * 97/100;
+        under61_ = under61_ * 97/100;
+
+        /** increase either the over or under count. **/
+        if (hi > 61000) {
+            over61_ += 10;
+        } else {
+            under61_ += 10;
+        }
+
+        /** no adjustment this frame. **/
+        if (over61_ < 100 && under61_ < 100) {
+            return;
+        }
+
+        /** take no step if they're really close. **/
+        if (over61_ <= 90 || under61_ <= 90) {
+            /** take a big step of about 10% of the exposure. **/
+            int step;
+            step = exposure_ / 10;
+
+            /** unless, we're already close to the correct value. **/
+            if (over61_ > 5 && under61_ > 5) {
+                step /= 30;
+            }
+
+            /** must make an adjustment. **/
+            if (step == 0) {
+                step = 1;
+            }
+
+            /** step the correct direction. **/
+            if (over61_ >= 100) {
+                step = - step;
+            }
+
+            /** take the step. **/
+            exposure_ += step;
+            LOG("new auto exposure="<<exposure_);
+
+            writeSettings();
+        }
+
+        /** reset the over/under counts. **/
+        int big = std::max(over61_, under61_);
+        over61_ = over61_ * 90 / big;
+        under61_ = under61_ * 90 / big;
+    }
+
     virtual void end() noexcept {
     	ASICloseCamera(kCameraNumber);
     	LOG("CaptureThread Closed camera.");
@@ -178,7 +292,8 @@ public:
 }
 
 agm::Thread *createCaptureThread(
-    ImageDoubleBuffer *image_double_buffer
+    ImageDoubleBuffer *image_double_buffer,
+    SettingsBuffer *settings_buffer
 ) noexcept {
-    return new(std::nothrow) CaptureThread(image_double_buffer);
+    return new(std::nothrow) CaptureThread(image_double_buffer, settings_buffer);
 }

@@ -24,7 +24,7 @@ public:
     ImageDoubleBuffer *image_double_buffer_ = nullptr;
     ImageBuffer *img_ = nullptr;
     SettingsBuffer *settings_buffer_ = nullptr;
-    Settings settings_;
+    bool show_focus_ = false;
     cv::String win_name_ = "ZWO ASI";
     bool first_image_ = false;
     cv::Mat rgb16_;
@@ -118,11 +118,11 @@ public:
 
     void copySettings() noexcept {
         std::lock_guard<std::mutex> lock(settings_buffer_->mutex_);
-        settings_ = *settings_buffer_;
+        show_focus_ = settings_buffer_->show_focus_;
     }
 
     void checkBlurriness() noexcept {
-        if (settings_.show_focus_ == false) {
+        if (show_focus_ == false) {
             return;
         }
 
