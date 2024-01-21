@@ -25,13 +25,13 @@ public:
     ImageBuffer *img_ = nullptr;
     /** share data with the menu thread. **/
     SettingsBuffer *settings_buffer_ = nullptr;
+    bool auto_exposure_ = false;
+    int exposure_ = 0;
 
     /** internal fields. **/
     static const int kCameraNumber = 0;
     int width_ = 0;
     int height_ = 0;
-    bool auto_exposure_ = false;
-    int exposure_ = 0;
     int over61_ = 0;
     int under61_ = 0;
 
@@ -199,8 +199,11 @@ public:
     }
 
     void writeSettings() noexcept {
+        /** only update exposure if auto exposure is enabled. **/
         std::lock_guard<std::mutex> lock(settings_buffer_->mutex_);
-        settings_buffer_->exposure_ = exposure_;
+        if (settings_buffer_->auto_exposure_) {
+            settings_buffer_->exposure_ = exposure_;
+        }
     }
 
     /**

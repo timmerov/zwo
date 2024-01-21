@@ -8,6 +8,7 @@ run the menu thread.
 
 #include <cctype>
 #include <cmath>
+#include <sstream>
 
 #include <aggiornamento/aggiornamento.h>
 #include <aggiornamento/log.h>
@@ -52,6 +53,11 @@ public:
             return;
         }
         switch (input_[0]) {
+        case 'c':
+        case 'C':
+            setColorBalance();
+            break;
+
         case 'e':
         case 'E':
             toggleAutoExposure();
@@ -81,18 +87,41 @@ public:
 
     void showMenu() noexcept {
         LOG("Menu:");
+        LOG("  C,c red blue: set color balance");
         LOG("  E,e [+-01yn]: toggle auto exposure: "<<settings_->auto_exposure_);
-        //LOG("  E,e 123: set exposure microseconds: "<<settings_->exposure_);
+        LOG("  E,e 123: set exposure microseconds: "<<settings_->exposure_);
         LOG("  F,f [+-01yn]: toggle manual focus helper: "<<settings_->show_focus_);
         LOG("  Q,q,esc: quit ");
         LOG("  X,x: run the experiment of the day");
     }
 
+    void setColorBalance() noexcept {
+        std::stringstream ss;
+        ss << input_;
+        char ch;
+        ss >> ch;
+        double new_balance_red = settings_->balance_red_;
+        double new_balance_blue = settings_->balance_blue_;
+        ss >> new_balance_red >> new_balance_blue;
+
+        std::lock_guard<std::mutex> lock(settings_->mutex_);
+        settings_->balance_red_ = new_balance_red;
+        settings_->balance_blue_ = new_balance_blue;
+    }
+
     void toggleAutoExposure() noexcept {
-        bool new_auto_exposure = getToggleOnOff(settings_->auto_exposure_);
+        bool new_auto_exposure = false;
+        int new_exposure = getInt(-1);
+        if (new_exposure <= 0) {
+            new_exposure = settings_->exposure_;
+            new_auto_exposure = getToggleOnOff(settings_->auto_exposure_);
+        }
+
         LOG("MenuThread auto exposure: "<<new_auto_exposure);
+        LOG("MenuThread exposure: "<<new_exposure);
         std::lock_guard<std::mutex> lock(settings_->mutex_);
         settings_->auto_exposure_ = new_auto_exposure;
+        settings_->exposure_ = new_exposure;
     }
 
     void toggleFocus() noexcept {
@@ -100,6 +129,19 @@ public:
         LOG("MenuThread focus: "<<new_focus);
         std::lock_guard<std::mutex> lock(settings_->mutex_);
         settings_->show_focus_ = new_focus;
+    }
+
+    /** parse the input as a number. **/
+    int getInt(
+        int default_value
+    ) noexcept {
+        std::stringstream ss;
+        ss << input_;
+        char ch;
+        ss >> ch;
+        int value = default_value;
+        ss >> value;
+        return value;
     }
 
     /**

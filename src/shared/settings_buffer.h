@@ -28,6 +28,8 @@ public:
     bool show_focus_ = false;
     bool auto_exposure_ = true;
     int exposure_ = 100; /*microseconds*/
+    double balance_red_ = 1.0;
+    double balance_blue_ = 1.0;
 };
 
 class SettingsBuffer : public Settings {

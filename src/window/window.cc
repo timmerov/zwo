@@ -21,10 +21,16 @@ display images in a window.
 namespace {
 class WindowThread : public agm::Thread {
 public:
+    /** share data with the capture thread. **/
     ImageDoubleBuffer *image_double_buffer_ = nullptr;
     ImageBuffer *img_ = nullptr;
+    /** share data with the menu thread. **/
     SettingsBuffer *settings_buffer_ = nullptr;
     bool show_focus_ = false;
+    double balance_red_ = 1.0;
+    double balance_blue_ = 1.0;
+
+    /** our fields. **/
     cv::String win_name_ = "ZWO ASI";
     bool first_image_ = false;
     cv::Mat rgb16_;
@@ -132,6 +138,8 @@ public:
     void copySettings() noexcept {
         std::lock_guard<std::mutex> lock(settings_buffer_->mutex_);
         show_focus_ = settings_buffer_->show_focus_;
+        balance_red_ = settings_buffer_->balance_red_;
+        balance_blue_ = settings_buffer_->balance_blue_;
     }
 
     void checkBlurriness() noexcept {
@@ -171,8 +179,8 @@ public:
         for (int i = 0; i < sz; ++i) {
             int r = ptr[2];
             int b = ptr[0];
-            r = r * 70 / 100;
-            b = b * 90 / 100;
+            r = std::round(r * balance_red_);
+            b = std::round(b * balance_blue_);
             ptr[2] = r;
             ptr[0] = b;
             ptr += 3;
@@ -182,23 +190,23 @@ public:
     void showHistogram() noexcept {
         int wd = img_->width_;
         int ht = img_->height_;
-        int sz = wd + 1;
+        int hist_sz = wd + 1;
         if (histr_ == nullptr) {
-            histr_ = new(std::nothrow) int[sz];
-            histg_ = new(std::nothrow) int[sz];
-            histb_ = new(std::nothrow) int[sz];
-            for (int i = 0; i < sz; ++i) {
+            histr_ = new(std::nothrow) int[hist_sz];
+            histg_ = new(std::nothrow) int[hist_sz];
+            histb_ = new(std::nothrow) int[hist_sz];
+            for (int i = 0; i < hist_sz; ++i) {
                 histr_[i] = 0;
                 histg_[i] = 0;
                 histb_[i] = 0;
             }
         }
-        for (int i = 0; i < sz; ++i) {
+        for (int i = 0; i < hist_sz; ++i) {
             histr_[i] = histr_[i] * 95 / 100;
             histg_[i] = histg_[i] * 95 / 100;
             histb_[i] = histb_[i] * 95 / 100;
         }
-        sz = wd * ht;
+        int sz = wd * ht;
         auto ptr = (agm::uint16 *) rgb16_.data;
         for (int i = 0; i < sz; ++i) {
             int r = ptr[2];
@@ -227,24 +235,26 @@ public:
     ) noexcept {
         int wd = img_->width_;
         int ht = img_->height_;
+        int htm1 = ht - 1;
         auto ptr = (agm::uint16 *) rgb16_.data;
         for (int x = 0; x < wd; ++x) {
             int c0 = hist[x+0];
             int c1 = hist[x+1];
-            c0 = c0 / 200;
-            c1 = c1 / 200;
-            c0 = std::min(c0, ht-1);
-            c1 = std::min(c1, ht-1);
-            c0 = ht-1 - c0;
-            c1 = ht-1 - c1;
+            c0 = c0 / 400;
+            c1 = c1 / 400;
+            c0 = std::min(c0, htm1);
+            c1 = std::min(c1, htm1);
+            c0 = htm1 - c0;
+            c1 = htm1 - c1;
             if (c0 > c1) {
                 std::swap(c0, c1);
             }
             for (int y = c0; y <= c1; ++y) {
                 auto dst = &ptr[3*wd*y];
-                for (int i = 0; i < 3; ++i) {
+                dst[color] = 65535;
+                /*for (int i = 0; i < 3; ++i) {
                     dst[i] = (i == color) ? 65535 : 0;
-                }
+                }*/
             }
             ptr += 3;
         }
