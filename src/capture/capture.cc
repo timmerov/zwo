@@ -225,9 +225,6 @@ public:
         }
 
         /** some panics. **/
-        if (hi < 2000) {
-            return;
-        }
         if (hi < 50000) {
             exposure_ = exposure_ * 56000 / hi;
             LOG("new auto exposure="<<exposure_);

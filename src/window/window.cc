@@ -28,12 +28,16 @@ public:
     cv::String win_name_ = "ZWO ASI";
     bool first_image_ = false;
     cv::Mat rgb16_;
+    cv::Mat cropped_;
     cv::Mat gray_;
     cv::Mat laplace_;
     cv::Mat rgb8_gamma_;
     double base_stddev_ = 0.0;
     int gamma_max_ = 0;
     agm::uint8 *gamma_ = nullptr;
+    int *histr_ = nullptr;
+    int *histg_ = nullptr;
+    int *histb_ = nullptr;
 
     WindowThread(
         ImageDoubleBuffer *image_double_buffer,
@@ -93,6 +97,15 @@ public:
         /** check blurriness. **/
         checkBlurriness();
 
+        /** balance colors. **/
+        balanceColors();
+
+        /** show histogram. **/
+        showHistogram();
+
+        /** adjust BGR colors. **/
+        //convertStdRgb();
+
         /** apply gamma. **/
         applyGamma();
 
@@ -135,7 +148,12 @@ public:
         it's weird to maximize a blurriness number.
         so print the inverse scaled arbitrarily.
         **/
-        cv::cvtColor(rgb16_, gray_, cv::COLOR_RGB2GRAY);
+        int wd = img_->width_;
+        int ht = img_->height_;
+        auto wd_range = cv::Range(wd/4, wd*3/4);
+        auto ht_range = cv::Range(ht/4, ht*3/4);
+        cropped_ = rgb16_(ht_range, wd_range);
+        cv::cvtColor(cropped_, gray_, cv::COLOR_RGB2GRAY);
         cv::Laplacian(gray_, laplace_, CV_64F, 3, 1, 0);
         cv::Scalar mean;
         cv::Scalar stddev;
@@ -145,6 +163,117 @@ public:
         }
         auto blurriness = base_stddev_ / stddev[0];
         LOG("blurriness: "<<blurriness);
+    }
+
+    void balanceColors() noexcept {
+        int sz = img_->width_ * img_->height_;
+        auto ptr = (agm::uint16 *) rgb16_.data;
+        for (int i = 0; i < sz; ++i) {
+            int r = ptr[2];
+            int b = ptr[0];
+            r = r * 70 / 100;
+            b = b * 90 / 100;
+            ptr[2] = r;
+            ptr[0] = b;
+            ptr += 3;
+        }
+    }
+
+    void showHistogram() noexcept {
+        int wd = img_->width_;
+        int ht = img_->height_;
+        int sz = wd + 1;
+        if (histr_ == nullptr) {
+            histr_ = new(std::nothrow) int[sz];
+            histg_ = new(std::nothrow) int[sz];
+            histb_ = new(std::nothrow) int[sz];
+            for (int i = 0; i < sz; ++i) {
+                histr_[i] = 0;
+                histg_[i] = 0;
+                histb_[i] = 0;
+            }
+        }
+        for (int i = 0; i < sz; ++i) {
+            histr_[i] = histr_[i] * 95 / 100;
+            histg_[i] = histg_[i] * 95 / 100;
+            histb_[i] = histb_[i] * 95 / 100;
+        }
+        sz = wd * ht;
+        auto ptr = (agm::uint16 *) rgb16_.data;
+        for (int i = 0; i < sz; ++i) {
+            int r = ptr[2];
+            int g = ptr[1];
+            int b = ptr[0];
+            ptr += 3;
+            r = r * wd / 65536;
+            g = g * wd / 65536;
+            b = b * wd / 65536;
+            r = std::max(0, std::min(r, wd));
+            g = std::max(0, std::min(g, wd));
+            b = std::max(0, std::min(b, wd));
+            ++histr_[r];
+            ++histg_[g];
+            ++histb_[b];
+        }
+
+        plotHistogram(histr_, 2);
+        plotHistogram(histg_, 1);
+        plotHistogram(histb_, 0);
+    }
+
+    void plotHistogram(
+        int *hist,
+        int color
+    ) noexcept {
+        int wd = img_->width_;
+        int ht = img_->height_;
+        auto ptr = (agm::uint16 *) rgb16_.data;
+        for (int x = 0; x < wd; ++x) {
+            int c0 = hist[x+0];
+            int c1 = hist[x+1];
+            c0 = c0 / 200;
+            c1 = c1 / 200;
+            c0 = std::min(c0, ht-1);
+            c1 = std::min(c1, ht-1);
+            c0 = ht-1 - c0;
+            c1 = ht-1 - c1;
+            if (c0 > c1) {
+                std::swap(c0, c1);
+            }
+            for (int y = c0; y <= c1; ++y) {
+                auto dst = &ptr[3*wd*y];
+                for (int i = 0; i < 3; ++i) {
+                    dst[i] = (i == color) ? 65535 : 0;
+                }
+            }
+            ptr += 3;
+        }
+    }
+
+    void convertStdRgb() noexcept {
+        /** adjust BGR colors **/
+        int sz = img_->width_ * img_->height_;
+        auto ptr = (agm::uint16 *) rgb16_.data;
+        for (int i = 0; i < sz; ++i) {
+            int r0 = ptr[2];
+            int g0 = ptr[1];
+            int b0 = ptr[0];
+            /** subtract black. **/
+            r0 -= 871;
+            g0 -= 1259;
+            b0 -= 1799;
+            /** convert observed rgb to srgb using best guess matrix. **/
+            int r1 = ( 61*r0 -  23*g0 -   0*b0)/100;
+            int g1 = (-28*r0 +  76*g0 -   8*b0)/100;
+            int b1 = (  2*r0 -  33*g0 +  83*b0)/100;
+            r1 = std::max(std::min(r1, 65535),0);
+            g1 = std::max(std::min(g1, 65535),0);
+            b1 = std::max(std::min(b1, 65535),0);
+            ptr[2] = r1;
+            ptr[1] = g1;
+            ptr[0] = b1;
+            ptr += 3;
+        }
     }
 
     /** the gamma table maps 16 bit to 8 bit. **/
