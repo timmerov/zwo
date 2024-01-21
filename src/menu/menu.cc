@@ -89,6 +89,10 @@ public:
             experiment();
             break;
 
+        case '?':
+            showHelp();
+            break;
+
         default:
             showMenu();
             break;
@@ -97,14 +101,15 @@ public:
 
     void showMenu() noexcept {
         LOG("Menu:");
-        LOG("  B,b [+-01yn]: toggle capture black: "<<settings_->capture_black_);
-        LOG("  C,c red blue: set color balance: r="<<settings_->balance_red_<<" b="<<settings_->balance_blue_);
-        LOG("  E,e [+-01yn]: toggle auto exposure: "<<settings_->auto_exposure_);
-        LOG("  E,e 123: set exposure microseconds: "<<settings_->exposure_);
-        LOG("  F,f [+-01yn]: toggle manual focus helper: "<<settings_->show_focus_);
-        LOG("  H,h [+-01yn]: toggle histogram: "<<settings_->show_histogram_);
-        LOG("  Q,q,esc: quit ");
-        LOG("  X,x: run the experiment of the day");
+        LOG("  B,b [+-01yn] : toggle capture black: "<<settings_->capture_black_);
+        LOG("  C,c red blue : set color balance: r="<<settings_->balance_red_<<" b="<<settings_->balance_blue_);
+        LOG("  E,e [+-01yn] : toggle auto exposure: "<<settings_->auto_exposure_);
+        LOG("  E,e usecs    : set exposure microseconds: "<<settings_->exposure_);
+        LOG("  F,f [+-01yn] : toggle manual focus helper: "<<settings_->show_focus_);
+        LOG("  H,h [+-01yn] : toggle histogram: "<<settings_->show_histogram_);
+        LOG("  Q,q,esc      : quit ");
+        LOG("  X,x          : run the experiment of the day");
+        LOG("  ?            : show help");
     }
 
     void toggleCaptureBlack() noexcept {
@@ -213,6 +218,27 @@ public:
     /** run the experiment of the day. **/
     void experiment() noexcept {
         LOG("Hello, World!");
+    }
+
+    /** show how the program is to be used. **/
+    void showHelp() noexcept {
+        LOG("General usage:");
+        LOG("-- Aim the camera at the target.");
+        LOG("-- Rough focus the camera.");
+        LOG("-- Wait for auto exposure to settle.");
+        LOG("-- Disable auto exposure. E");
+        LOG("-- Enable manual focus helper. F");
+        LOG("-- Minimize the blurriness number.");
+        LOG("-- Disable manual focus helper. F");
+        LOG("-- Put lens cap on camera.");
+        LOG("-- Enable capture black. B");
+        LOG("-- Wait for black levels to settle.");
+        LOG("-- Disable capture black. B");
+        LOG("-- Remove lens cap from camera.");
+        LOG("-- Enable histogram. H");
+        LOG("-- Balance colors. C r b");
+        LOG("-- Disable histogram. H");
+        LOG("-- Profit.");
     }
 };
 }
