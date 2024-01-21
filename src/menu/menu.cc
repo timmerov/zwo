@@ -53,6 +53,11 @@ public:
             return;
         }
         switch (input_[0]) {
+        case 'b':
+        case 'B':
+            toggleCaptureBlack();
+            break;
+
         case 'c':
         case 'C':
             setColorBalance();
@@ -66,6 +71,11 @@ public:
         case 'f':
         case 'F':
             toggleFocus();
+            break;
+
+        case 'h':
+        case 'H':
+            toggleHistogram();
             break;
 
         case 'q':
@@ -87,12 +97,21 @@ public:
 
     void showMenu() noexcept {
         LOG("Menu:");
-        LOG("  C,c red blue: set color balance");
+        LOG("  B,b [+-01yn]: toggle capture black: "<<settings_->capture_black_);
+        LOG("  C,c red blue: set color balance: r="<<settings_->balance_red_<<" b="<<settings_->balance_blue_);
         LOG("  E,e [+-01yn]: toggle auto exposure: "<<settings_->auto_exposure_);
         LOG("  E,e 123: set exposure microseconds: "<<settings_->exposure_);
         LOG("  F,f [+-01yn]: toggle manual focus helper: "<<settings_->show_focus_);
+        LOG("  H,h [+-01yn]: toggle histogram: "<<settings_->show_histogram_);
         LOG("  Q,q,esc: quit ");
         LOG("  X,x: run the experiment of the day");
+    }
+
+    void toggleCaptureBlack() noexcept {
+        bool new_capture_black = getToggleOnOff(settings_->capture_black_);
+        LOG("MenuThread capture black: "<<new_capture_black);
+        std::lock_guard<std::mutex> lock(settings_->mutex_);
+        settings_->capture_black_ = new_capture_black;
     }
 
     void setColorBalance() noexcept {
@@ -103,6 +122,7 @@ public:
         double new_balance_red = settings_->balance_red_;
         double new_balance_blue = settings_->balance_blue_;
         ss >> new_balance_red >> new_balance_blue;
+        LOG("ManeuThread color balance: r="<<new_balance_red<<" b="<<new_balance_blue);
 
         std::lock_guard<std::mutex> lock(settings_->mutex_);
         settings_->balance_red_ = new_balance_red;
@@ -129,6 +149,13 @@ public:
         LOG("MenuThread focus: "<<new_focus);
         std::lock_guard<std::mutex> lock(settings_->mutex_);
         settings_->show_focus_ = new_focus;
+    }
+
+    void toggleHistogram() noexcept {
+        bool new_histogram = getToggleOnOff(settings_->show_histogram_);
+        LOG("MenuThread histogram: "<<new_histogram);
+        std::lock_guard<std::mutex> lock(settings_->mutex_);
+        settings_->show_histogram_ = new_histogram;
     }
 
     /** parse the input as a number. **/

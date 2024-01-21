@@ -25,11 +25,13 @@ public:
     Settings(const Settings &) = default;
     ~Settings() noexcept = default;
 
-    bool show_focus_ = false;
-    bool auto_exposure_ = true;
-    int exposure_ = 100; /*microseconds*/
+    bool capture_black_ = false;
     double balance_red_ = 1.0;
     double balance_blue_ = 1.0;
+    bool auto_exposure_ = true;
+    int exposure_ = 100; /*microseconds*/
+    bool show_focus_ = false;
+    bool show_histogram_ = false;
 };
 
 class SettingsBuffer : public Settings {

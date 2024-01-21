@@ -26,9 +26,12 @@ public:
     ImageBuffer *img_ = nullptr;
     /** share data with the menu thread. **/
     SettingsBuffer *settings_buffer_ = nullptr;
-    bool show_focus_ = false;
+
+    bool capture_black_ = 0;
     double balance_red_ = 1.0;
     double balance_blue_ = 1.0;
+    bool show_focus_ = false;
+    bool show_histogram_ = false;
 
     /** our fields. **/
     cv::String win_name_ = "ZWO ASI";
@@ -44,6 +47,9 @@ public:
     int *histr_ = nullptr;
     int *histg_ = nullptr;
     int *histb_ = nullptr;
+    agm::uint16 blackr_ = 0;
+    agm::uint16 blackg_ = 0;
+    agm::uint16 blackb_ = 0;
 
     WindowThread(
         ImageDoubleBuffer *image_double_buffer,
@@ -103,6 +109,12 @@ public:
         /** check blurriness. **/
         checkBlurriness();
 
+        /** capture black. **/
+        captureBlack();
+
+        /** suptract black. **/
+        subtractBlack();
+
         /** balance colors. **/
         balanceColors();
 
@@ -137,9 +149,11 @@ public:
 
     void copySettings() noexcept {
         std::lock_guard<std::mutex> lock(settings_buffer_->mutex_);
-        show_focus_ = settings_buffer_->show_focus_;
+        capture_black_ = settings_buffer_->capture_black_;
         balance_red_ = settings_buffer_->balance_red_;
         balance_blue_ = settings_buffer_->balance_blue_;
+        show_focus_ = settings_buffer_->show_focus_;
+        show_histogram_ = settings_buffer_->show_histogram_;
     }
 
     void checkBlurriness() noexcept {
@@ -173,6 +187,45 @@ public:
         LOG("blurriness: "<<blurriness);
     }
 
+    void captureBlack() noexcept {
+        if (capture_black_ == false) {
+            return;
+        }
+
+        auto mean = cv::mean(rgb16_);
+        int r = blackr_ * 95 / 100;
+        int g = blackg_ * 95 / 100;
+        int b = blackb_ * 95 / 100;
+        blackr_ = (r + mean[2]) / 2;
+        blackg_ = (g + mean[1]) / 2;
+        blackb_ = (b + mean[0]) / 2;
+        LOG("new black: r="<<blackr_<<" g="<<blackg_<<" b="<<blackb_);
+    }
+
+    /**
+    subtract black from the image.
+    pin to 0.
+    **/
+    void subtractBlack() noexcept {
+        int sz = img_->width_ * img_->height_;
+        auto ptr = (agm::uint16 *) rgb16_.data;
+        for (int i = 0; i < sz; ++i) {
+            int r = ptr[2];
+            int g = ptr[1];
+            int b = ptr[0];
+            r -= blackr_;
+            g -= blackg_;
+            b -= blackb_;
+            r = std::max(0, r);
+            g = std::max(0, g);
+            b = std::max(0, b);
+            ptr[2] = r;
+            ptr[1] = g;
+            ptr[0] = b;
+            ptr += 3;
+        }
+    }
+
     void balanceColors() noexcept {
         int sz = img_->width_ * img_->height_;
         auto ptr = (agm::uint16 *) rgb16_.data;
@@ -188,6 +241,10 @@ public:
     }
 
     void showHistogram() noexcept {
+        if (show_histogram_ == false) {
+            return;
+        }
+
         int wd = img_->width_;
         int ht = img_->height_;
         int hist_sz = wd + 1;
@@ -242,8 +299,8 @@ public:
             int c1 = hist[x+1];
             c0 = c0 / 400;
             c1 = c1 / 400;
-            c0 = std::min(c0, htm1);
-            c1 = std::min(c1, htm1);
+            c0 = std::max(0, std::min(c0, htm1));
+            c1 = std::max(0, std::min(c1, htm1));
             c0 = htm1 - c0;
             c1 = htm1 - c1;
             if (c0 > c1) {
