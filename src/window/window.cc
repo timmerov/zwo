@@ -26,12 +26,12 @@ public:
     ImageBuffer *img_ = nullptr;
     /** share data with the menu thread. **/
     SettingsBuffer *settings_buffer_ = nullptr;
-
     bool capture_black_ = 0;
     double balance_red_ = 1.0;
     double balance_blue_ = 1.0;
     bool show_focus_ = false;
     bool show_histogram_ = false;
+    std::string save_file_name_;
 
     /** our fields. **/
     cv::String win_name_ = "ZWO ASI";
@@ -130,6 +130,9 @@ public:
         /** show it. **/
         cv::imshow(win_name_, rgb8_gamma_);
 
+        /** save the file. **/
+        saveImage();
+
         /** check for user input. **/
         int key = cv::waitKey(1);
         if (key >= 0) {
@@ -154,6 +157,7 @@ public:
         balance_blue_ = settings_buffer_->balance_blue_;
         show_focus_ = settings_buffer_->show_focus_;
         show_histogram_ = settings_buffer_->show_histogram_;
+        save_file_name_ = std::move(settings_buffer_->save_file_name_);
     }
 
     void checkBlurriness() noexcept {
@@ -445,6 +449,21 @@ public:
 
             /** use the value from the table. **/
             *dst++ = gamma_[ix];
+        }
+    }
+
+    /** save the image to the file. **/
+    void saveImage() noexcept {
+        if (save_file_name_.size() == 0) {
+            return;
+        }
+
+        /** this is why you do not throw exceptions ever. **/
+        try {
+            cv::imwrite(save_file_name_, rgb8_gamma_);
+            LOG("CaptureThread Saved image to file: "<<save_file_name_);
+        } catch (const cv::Exception& ex) {
+            LOG("CaptureThread Failed to save image to file: "<<save_file_name_<<" OpenCV reason: "<<ex.what());
         }
     }
 };

@@ -32,6 +32,7 @@ public:
     int exposure_ = 100; /*microseconds*/
     bool show_focus_ = false;
     bool show_histogram_ = false;
+    std::string save_file_name_;
 };
 
 class SettingsBuffer : public Settings {

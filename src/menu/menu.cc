@@ -84,6 +84,11 @@ public:
             quit();
             break;
 
+        case 's':
+        case 'S':
+            saveImage();
+            break;
+
         case 'x':
         case 'X':
             experiment();
@@ -107,7 +112,8 @@ public:
         LOG("  E,e usecs    : set exposure microseconds: "<<settings_->exposure_);
         LOG("  F,f [+-01yn] : toggle manual focus helper: "<<settings_->show_focus_);
         LOG("  H,h [+-01yn] : toggle histogram: "<<settings_->show_histogram_);
-        LOG("  Q,q,esc      : quit ");
+        LOG("  Q,q,esc      : quit");
+        LOG("  S,S file     : save the image.");
         LOG("  X,x          : run the experiment of the day");
         LOG("  ?            : show help");
     }
@@ -170,9 +176,8 @@ public:
         std::stringstream ss;
         ss << input_;
         char ch;
-        ss >> ch;
         int value = default_value;
-        ss >> value;
+        ss >> ch >> value;
         return value;
     }
 
@@ -213,6 +218,21 @@ public:
     void quit() noexcept {
         LOG("MenuThread stopping all threads.");
         agm::master::setDone();
+    }
+
+    void saveImage() noexcept {
+        std::stringstream ss;
+        ss << input_;
+        char ch;
+        std::string filename;
+        ss >> ch >> filename;
+        if (filename.size() == 0) {
+            return;
+        }
+
+        LOG("MenuThread save file: "<<filename);
+        std::lock_guard<std::mutex> lock(settings_->mutex_);
+        settings_->save_file_name_ = filename;
     }
 
     /** run the experiment of the day. **/
