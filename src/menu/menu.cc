@@ -89,6 +89,11 @@ public:
             quit();
             break;
 
+        case 'r':
+        case 'R':
+            toggleFps();
+            break;
+
         case 's':
         case 'S':
             saveImage();
@@ -118,6 +123,7 @@ public:
         LOG("  E,e usecs    : set exposure microseconds: "<<settings_->exposure_<<" (disables auto exposure)");
         LOG("  F,f [+-01yn] : toggle manual focus helper: "<<settings_->show_focus_);
         LOG("  H,h [+-01yn] : toggle histogram: "<<settings_->show_histogram_);
+        LOG("  R,r [+-01yn] : toggle fps (frame Rate): "<<settings_->show_fps_);
         LOG("  Q,q,esc      : quit");
         LOG("  S,s file     : save the image (disables stacking).");
         LOG("  X,x          : run the experiment of the day");
@@ -180,6 +186,13 @@ public:
         LOG("MenuThread histogram: "<<new_histogram);
         std::lock_guard<std::mutex> lock(settings_->mutex_);
         settings_->show_histogram_ = new_histogram;
+    }
+
+    void toggleFps() noexcept {
+        bool new_fps = getToggleOnOff(settings_->show_fps_);
+        LOG("MenuThread show fps (frame rate): "<<new_fps);
+        std::lock_guard<std::mutex> lock(settings_->mutex_);
+        settings_->show_fps_ = new_fps;
     }
 
     /** parse the input as a number. **/

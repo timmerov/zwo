@@ -26,12 +26,13 @@ public:
     ImageBuffer *img_ = nullptr;
     /** share data with the menu thread. **/
     SettingsBuffer *settings_buffer_ = nullptr;
-    bool accumulate_ = 0;
-    bool capture_black_ = 0;
+    bool accumulate_ = false;
+    bool capture_black_ = false;
     double balance_red_ = 1.0;
     double balance_blue_ = 1.0;
     bool show_focus_ = false;
     bool show_histogram_ = false;
+    bool show_fps_ = false;
     std::string save_file_name_;
 
     /** our fields. **/
@@ -53,6 +54,8 @@ public:
     agm::uint16 blackg_ = 0;
     agm::uint16 blackb_ = 0;
     int nstacked_ = 0;
+    agm::int64 fps_start_ = 0;
+    int fps_count_ = 0;
 
     WindowThread(
         ImageDoubleBuffer *image_double_buffer,
@@ -98,6 +101,25 @@ public:
 
             /** finish initialization now that we know the capture size. **/
             rgb8_gamma_ = std::move(cv::Mat(ht, wd, CV_8UC3));
+        }
+
+        /** display fps every 3 seconds. **/
+        if (show_fps_) {
+            if (fps_start_ == 0) {
+                fps_start_ = agm::time::microseconds();
+            }
+            ++fps_count_;
+            auto now = agm::time::microseconds();
+            auto elapsed = now - fps_start_;
+            if (elapsed > 3000000LL) {
+                double fps = double(fps_count_) * 1000000.0 / double(elapsed);
+                LOG("WindowThread fps: "<<fps);
+                fps_count_ = 0;
+                fps_start_ = 0;
+            }
+        } else {
+            fps_start_ = 0;
+            fps_count_ = 0;
         }
 
         /** copy all of the settings at once. **/
@@ -164,6 +186,7 @@ public:
         balance_blue_ = settings_buffer_->balance_blue_;
         show_focus_ = settings_buffer_->show_focus_;
         show_histogram_ = settings_buffer_->show_histogram_;
+        show_fps_ = settings_buffer_->show_fps_;
         save_file_name_ = std::move(settings_buffer_->save_file_name_);
     }
 

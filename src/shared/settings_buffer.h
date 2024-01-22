@@ -34,6 +34,7 @@ public:
     int exposure_ = 100; /*microseconds*/
     bool show_focus_ = false;
     bool show_histogram_ = false;
+    bool show_fps_ = false;
     std::string save_file_name_;
 };
 
