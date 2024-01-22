@@ -53,6 +53,11 @@ public:
             return;
         }
         switch (input_[0]) {
+        case 'a':
+        case 'A':
+            toggleAccumulate();
+            break;
+
         case 'b':
         case 'B':
             toggleCaptureBlack();
@@ -106,16 +111,24 @@ public:
 
     void showMenu() noexcept {
         LOG("Menu:");
+        LOG("  A,a [+-01yn] : stack (accumulate) images: "<<settings_->accumulate_);
         LOG("  B,b [+-01yn] : toggle capture black: "<<settings_->capture_black_);
         LOG("  C,c red blue : set color balance: r="<<settings_->balance_red_<<" b="<<settings_->balance_blue_);
         LOG("  E,e [+-01yn] : toggle auto exposure: "<<settings_->auto_exposure_);
-        LOG("  E,e usecs    : set exposure microseconds: "<<settings_->exposure_);
+        LOG("  E,e usecs    : set exposure microseconds: "<<settings_->exposure_<<" (disables auto exposure)");
         LOG("  F,f [+-01yn] : toggle manual focus helper: "<<settings_->show_focus_);
         LOG("  H,h [+-01yn] : toggle histogram: "<<settings_->show_histogram_);
         LOG("  Q,q,esc      : quit");
-        LOG("  S,S file     : save the image.");
+        LOG("  S,s file     : save the image (disables stacking).");
         LOG("  X,x          : run the experiment of the day");
         LOG("  ?            : show help");
+    }
+
+    void toggleAccumulate() noexcept {
+        bool new_accumulate = getToggleOnOff(settings_->accumulate_);
+        LOG("MenuThread stack (accumulate) images: "<<new_accumulate);
+        std::lock_guard<std::mutex> lock(settings_->mutex_);
+        settings_->accumulate_ = new_accumulate;
     }
 
     void toggleCaptureBlack() noexcept {
@@ -258,6 +271,9 @@ public:
         LOG("-- Enable histogram. H");
         LOG("-- Balance colors. C r b");
         LOG("-- Disable histogram. H");
+        LOG("-- Stack (accumulate) images. A");
+        LOG("-- Wait as long as you wish.");
+        LOG("-- Save the image.");
         LOG("-- Profit.");
     }
 };

@@ -19,12 +19,14 @@ use this code in the code block:
 
     std::lock_guard<std::mutex> lock(mutex_);
 **/
+
 class Settings {
 public:
     Settings() noexcept = default;
     Settings(const Settings &) = default;
     ~Settings() noexcept = default;
 
+    bool accumulate_ = false;
     bool capture_black_ = false;
     double balance_red_ = 1.0;
     double balance_blue_ = 1.0;

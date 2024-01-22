@@ -26,6 +26,7 @@ public:
     ImageBuffer *img_ = nullptr;
     /** share data with the menu thread. **/
     SettingsBuffer *settings_buffer_ = nullptr;
+    bool accumulate_ = 0;
     bool capture_black_ = 0;
     double balance_red_ = 1.0;
     double balance_blue_ = 1.0;
@@ -37,6 +38,7 @@ public:
     cv::String win_name_ = "ZWO ASI";
     bool first_image_ = false;
     cv::Mat rgb16_;
+    cv::Mat rgb32_;
     cv::Mat cropped_;
     cv::Mat gray_;
     cv::Mat laplace_;
@@ -50,6 +52,7 @@ public:
     agm::uint16 blackr_ = 0;
     agm::uint16 blackg_ = 0;
     agm::uint16 blackb_ = 0;
+    int nstacked_ = 0;
 
     WindowThread(
         ImageDoubleBuffer *image_double_buffer,
@@ -112,8 +115,11 @@ public:
         /** capture black. **/
         captureBlack();
 
-        /** suptract black. **/
+        /** subtract black. **/
         subtractBlack();
+
+        /** stack images. **/
+        stackImages();
 
         /** adjust BGR colors. **/
         convertStdRgb();
@@ -152,6 +158,7 @@ public:
 
     void copySettings() noexcept {
         std::lock_guard<std::mutex> lock(settings_buffer_->mutex_);
+        accumulate_ = settings_buffer_->accumulate_;
         capture_black_ = settings_buffer_->capture_black_;
         balance_red_ = settings_buffer_->balance_red_;
         balance_blue_ = settings_buffer_->balance_blue_;
@@ -227,6 +234,64 @@ public:
             ptr[1] = g;
             ptr[0] = b;
             ptr += 3;
+        }
+    }
+
+    /** no alignment **/
+    void stackImages() noexcept {
+        if (accumulate_ == false) {
+            return;
+        }
+
+        int wd = img_->width_;
+        int ht = img_->height_;
+        int sz = 3 * wd * ht;
+
+        /** the first image. **/
+        if (rgb32_.rows == 0) {
+            rgb32_ = cv::Mat(ht, wd, CV_32SC3);
+            rgb32_ = 0;
+        }
+
+        /**
+        accumulate the 16 bit values into the 32 bit sums.
+        save the maximum value.
+        **/
+        int mx = 0;
+        auto ptr16 = (agm::uint16 *) rgb16_.data;
+        auto ptr32 = (agm::uint32 *) rgb32_.data;
+        for (int i = 0; i < sz; ++i) {
+            int px = *ptr32;
+            px += *ptr16++;
+            mx = std::max(mx, px);
+            *ptr32++ = px;
+        }
+
+        /** scale and copy the 32 bit image back to the 16 bit buffer. **/
+        ptr16 = (agm::uint16 *) rgb16_.data;
+        ptr32 = (agm::uint32 *) rgb32_.data;
+        for (int i = 0; i < sz; ++i) {
+            /** caution: overflow **/
+            agm::uint64 px = *ptr32++;
+            px = px * 65535 / mx;
+            px = std::max(agm::uint64(0), std::min(px, agm::uint64(65535)));
+            *ptr16++ = px;
+        }
+
+        /** bump the counter and log. **/
+        ++nstacked_;
+        int ns = nstacked_;
+        if (ns >= 10) {
+            for(;;) {
+                int rem = ns - ns / 10 * 10;
+                if (rem != 0) {
+                    break;
+                }
+                ns /= 10;
+            }
+            if (ns == 1 || ns == 3) {
+                LOG("WindowThread Stacked "<<nstacked_<<" frames.");
+            }
         }
     }
 
@@ -459,11 +524,22 @@ public:
         }
 
         /** this is why you do not throw exceptions ever. **/
+        bool success = false;
         try {
-            cv::imwrite(save_file_name_, rgb8_gamma_);
+            success = cv::imwrite(save_file_name_, rgb8_gamma_);
             LOG("CaptureThread Saved image to file: "<<save_file_name_);
         } catch (const cv::Exception& ex) {
             LOG("CaptureThread Failed to save image to file: "<<save_file_name_<<" OpenCV reason: "<<ex.what());
+        }
+
+        /** disable stacking. **/
+        if (success && accumulate_) {
+            accumulate_ = 0;
+            nstacked_ = 0;
+            rgb32_ = 0;
+
+            std::lock_guard<std::mutex> lock(settings_buffer_->mutex_);
+            settings_buffer_->accumulate_ = false;
         }
     }
 };
