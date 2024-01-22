@@ -115,14 +115,14 @@ public:
         /** suptract black. **/
         subtractBlack();
 
+        /** adjust BGR colors. **/
+        convertStdRgb();
+
         /** balance colors. **/
         balanceColors();
 
         /** show histogram. **/
         showHistogram();
-
-        /** adjust BGR colors. **/
-        //convertStdRgb();
 
         /** apply gamma. **/
         applyGamma();
@@ -226,6 +226,37 @@ public:
         }
     }
 
+    void convertStdRgb() noexcept {
+        /** adjust BGR colors **/
+        int sz = img_->width_ * img_->height_;
+        auto ptr = (agm::uint16 *) rgb16_.data;
+        for (int i = 0; i < sz; ++i) {
+            int r0 = ptr[2];
+            int g0 = ptr[1];
+            int b0 = ptr[0];
+            /**
+            convert observed rgb to srgb using best guess matrix.
+            the camera was shown black, red, green, blue screens.
+            a response matrix was constructed.
+            scaling r,g,b was a bit non-intuitive.
+            the matrix was inverted to get this color correction matrix.
+            which is good enough for now.
+            we still have too much red and blue for color balancing.
+            but i guess that's okay.
+            **/
+            int r1 = ( 57*r0 -   9*g0 -   0*b0)/100;
+            int g1 = (-35*r0 + 100*g0 -  13*b0)/100;
+            int b1 = (  2*r0 -  27*g0 +  68*b0)/100;
+            r1 = std::max(std::min(r1, 65535),0);
+            g1 = std::max(std::min(g1, 65535),0);
+            b1 = std::max(std::min(b1, 65535),0);
+            ptr[2] = r1;
+            ptr[1] = g1;
+            ptr[0] = b1;
+            ptr += 3;
+        }
+    }
+
     void balanceColors() noexcept {
         int sz = img_->width_ * img_->height_;
         auto ptr = (agm::uint16 *) rgb16_.data;
@@ -290,15 +321,49 @@ public:
         int *hist,
         int color
     ) noexcept {
+    #if 0
+        /**
+        plotting the histogram as a log has potential.
+        the max value of the histogram would be about 20*wd*ht.
+        if everything were evenly distributed it would be about 20*ht.
+        we want 20*ht to be about half way up the screen.
+        but that puts tiny values way too high.
+        i suppose we could look this up in a table for speed.
+        but it might be kinda big.
+        **/
+        (void) hist;
+        (void) color;
         int wd = img_->width_;
         int ht = img_->height_;
         int htm1 = ht - 1;
         auto ptr = (agm::uint16 *) rgb16_.data;
+
+        for (int x = 0; x < wd; ++x) {
+            int y = std::round(double(ht) * std::pow(double(x)/double(wd), k));
+            y = htm1 - y;
+            y = std::max(0, std::min(y, htm1));
+            LOG("x="<<x<<" y="<<y);
+            auto dst = &ptr[3*wd*y];
+            for (int i = 0; i < 3; ++i) {
+                dst[i] = 65535;
+            }
+            ptr += 3;
+        }
+    #endif
+
+        int wd = img_->width_;
+        int ht = img_->height_;
+        int htm1 = ht - 1;
+        double mx = double(20 * wd * ht);
+        double k = std::log(2.0) / std::log(double(wd));
+        auto ptr = (agm::uint16 *) rgb16_.data;
         for (int x = 0; x < wd; ++x) {
             int c0 = hist[x+0];
             int c1 = hist[x+1];
-            c0 = c0 / 400;
-            c1 = c1 / 400;
+            c0 = std::round(double(ht) * std::pow(double(c0)/mx, k));
+            c1 = std::round(double(ht) * std::pow(double(c1)/mx, k));
+            //c0 = c0 / 400;
+            //c1 = c1 / 400;
             c0 = std::max(0, std::min(c0, htm1));
             c1 = std::max(0, std::min(c1, htm1));
             c0 = htm1 - c0;
@@ -309,36 +374,7 @@ public:
             for (int y = c0; y <= c1; ++y) {
                 auto dst = &ptr[3*wd*y];
                 dst[color] = 65535;
-                /*for (int i = 0; i < 3; ++i) {
-                    dst[i] = (i == color) ? 65535 : 0;
-                }*/
             }
-            ptr += 3;
-        }
-    }
-
-    void convertStdRgb() noexcept {
-        /** adjust BGR colors **/
-        int sz = img_->width_ * img_->height_;
-        auto ptr = (agm::uint16 *) rgb16_.data;
-        for (int i = 0; i < sz; ++i) {
-            int r0 = ptr[2];
-            int g0 = ptr[1];
-            int b0 = ptr[0];
-            /** subtract black. **/
-            r0 -= 871;
-            g0 -= 1259;
-            b0 -= 1799;
-            /** convert observed rgb to srgb using best guess matrix. **/
-            int r1 = ( 61*r0 -  23*g0 -   0*b0)/100;
-            int g1 = (-28*r0 +  76*g0 -   8*b0)/100;
-            int b1 = (  2*r0 -  33*g0 +  83*b0)/100;
-            r1 = std::max(std::min(r1, 65535),0);
-            g1 = std::max(std::min(g1, 65535),0);
-            b1 = std::max(std::min(b1, 65535),0);
-            ptr[2] = r1;
-            ptr[1] = g1;
-            ptr[0] = b1;
             ptr += 3;
         }
     }
