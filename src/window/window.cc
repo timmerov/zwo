@@ -282,22 +282,70 @@ public:
         **/
         int mx = 0;
         auto ptr16 = (agm::uint16 *) rgb16_.data;
-        auto ptr32 = (agm::uint32 *) rgb32_.data;
+        auto ptr32 = (agm::int32 *) rgb32_.data;
         for (int i = 0; i < sz; ++i) {
-            int px = *ptr32;
+            agm::int32 px = *ptr32;
             px += *ptr16++;
             mx = std::max(mx, px);
             *ptr32++ = px;
         }
 
+        /** vvvvvvvv hdr experiments. **/
+        static const int kHdrHistSize = 2000;
+        static int *hdr_hist_ = nullptr;
+        if (hdr_hist_ == nullptr) {
+            hdr_hist_ = new(std::nothrow) int[kHdrHistSize];
+        }
+        for (int i = 0; i < kHdrHistSize; ++i) {
+            hdr_hist_[i] = 0;
+        }
+        ptr32 = (agm::int32 *) rgb32_.data;
+        for (int i = 0; i < sz; ++i) {
+            agm::int64 px = *ptr32++;
+            px = px * (kHdrHistSize-1) / mx;
+            px = std::max(agm::int64(0), std::min(px, agm::int64(kHdrHistSize-1)));
+            ++hdr_hist_[px];
+        }
+        int hdr_count = 0;
+        int hdr_thresh = 0;
+        (void) hdr_thresh;
+        for (int i = 0; i < kHdrHistSize; ++i) {
+            int count = hdr_hist_[i];
+            double range = (double(i) + 0.5) / double(kHdrHistSize);
+            double pixels = double(hdr_count + count/2) / double(sz);
+            hdr_count += count;
+            if (range + pixels >= 1.0) {
+                hdr_thresh = std::round(mx * range);
+                //LOG("hdr i="<<i<<" range="<<range<<" pixels="<<pixels<<" thresh="<<hdr_thresh);
+                break;
+            }
+        }
+        /** ^^^^^^^^ hdr experiments. **/
+
         /** scale and copy the 32 bit image back to the 16 bit buffer. **/
         ptr16 = (agm::uint16 *) rgb16_.data;
-        ptr32 = (agm::uint32 *) rgb32_.data;
+        ptr32 = (agm::int32 *) rgb32_.data;
         for (int i = 0; i < sz; ++i) {
             /** caution: overflow **/
-            agm::uint64 px = *ptr32++;
+            agm::int64 px = *ptr32++;
+            /** vvvvvvvv hdr experiments **/
+            /** scale bright pixels to the full visible range. **/
+            //px = (px - hdr_thresh) * 65535 / (mx - hdr_thresh);
+            /** scale dark pixels to the full visible range. **/
+            //px = px * 65535 / hdr_thresh;
+            /**
+            scale bright pixels to the upper visible range.
+            scale dark pixels to the lower visible range.
+            **/
+            /*if (px > hdr_thresh) {
+                px = (px - hdr_thresh) * (65535/2)/ (mx - hdr_thresh) + (65535/2);
+            } else {
+                px = px * (65535/2) / hdr_thresh;
+            }*/
+            /** ^^^^^^^^ hdr experiments **/
+            /** scale all pixels to the full visible range. **/
             px = px * 65535 / mx;
-            px = std::max(agm::uint64(0), std::min(px, agm::uint64(65535)));
+            px = std::max(agm::int64(0), std::min(px, agm::int64(65535)));
             *ptr16++ = px;
         }
 
@@ -533,7 +581,7 @@ public:
             int ix = (sval * gamma_max_ + kSourceChannelMax/2) / kSourceChannelMax;
 
             /** pin to 8 bits. **/
-            ix = std::max(0, std::min(ix, 255));
+            ix = std::max(0, std::min(ix, gamma_max_));
 
             /** use the value from the table. **/
             *dst++ = gamma_[ix];
