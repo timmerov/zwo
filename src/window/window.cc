@@ -162,9 +162,9 @@ public:
         /** save the file. **/
         saveImage();
 
-        /** check for user input. **/
+        /** check for user hits escape key. **/
         int key = cv::waitKey(1);
-        if (key >= 0) {
+        if (key == 27) {
             /** stop all threads. **/
             LOG("WindowThread stopping all threads.");
             agm::master::setDone();
@@ -370,6 +370,21 @@ public:
     }
 
     void convertStdRgb() noexcept {
+        /**
+        it turns out...
+        this camera really wants to be lit by sunlight.
+        the halogen lighting in my office does bad things.
+        specifically, blues and greens are indistinguishable.
+        the below color correction matrix was derived from taking
+        pictures of the computer screen with the halogen light on.
+        i ran a different experiment with the macbeth color calibration chart.
+        the colors were pretty darn good.
+        the fisheye lens distorted things massively.
+        so...
+        the conclusion is we don't need to do anything to convert to standard rgb.
+        amazing.
+        **/
+#if 0
         /** adjust BGR colors **/
         int sz = img_->width_ * img_->height_;
         auto ptr = (agm::uint16 *) rgb16_.data;
@@ -398,6 +413,7 @@ public:
             ptr[0] = b1;
             ptr += 3;
         }
+#endif
     }
 
     void balanceColors() noexcept {
