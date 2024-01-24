@@ -38,7 +38,7 @@ set(AGM_DIR "${CMAKE_SOURCE_DIR}/../aggiornamento/agm")
 find_package(OpenCV REQUIRED)
 
 # find the curses package
-find_package(Curses REQUIRED)
+find_package(TIFF REQUIRED)
 
 # add the include directories
 set(INCS
@@ -52,7 +52,7 @@ include_directories(${INCS})
 # add the libraries
 set(LIBS
     ${OpenCV_LIBS}
-    ${CURSES_LIBRARIES}
+    ${TIFF_LIBRARIES}
     ${ZWO_ASI_DIR}/lib/x64/libASICamera2.so
     ${AGM_DIR}/lib/libagm.a
 )

@@ -8,6 +8,7 @@ display images in a window.
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc.hpp>
+#include <tiffio.h>
 
 #include <aggiornamento/aggiornamento.h>
 #include <aggiornamento/log.h>
@@ -290,6 +291,7 @@ public:
             *ptr32++ = px;
         }
 
+        #if 0
         /** vvvvvvvv hdr experiments. **/
         static const int kHdrHistSize = 2000;
         static int *hdr_hist_ = nullptr;
@@ -321,6 +323,7 @@ public:
             }
         }
         /** ^^^^^^^^ hdr experiments. **/
+        #endif
 
         /** scale and copy the 32 bit image back to the 16 bit buffer. **/
         ptr16 = (agm::uint16 *) rgb16_.data;
@@ -594,24 +597,124 @@ public:
             return;
         }
 
-        /** this is why you do not throw exceptions ever. **/
+        bool success = false;
+        if (accumulate_) {
+            success = saveImage32();
+        } else {
+            success = saveImage8();
+        }
+
+        if (success) {
+            LOG("CaptureThread Saved image to file: "<<save_file_name_);
+
+            /** disable stacking. **/
+            if (accumulate_) {
+                accumulate_ = 0;
+                nstacked_ = 0;
+                rgb32_ = 0;
+
+                std::lock_guard<std::mutex> lock(settings_buffer_->mutex_);
+                settings_buffer_->accumulate_ = false;
+            }
+        }
+    }
+
+    /** save the 32 bit image using tiff. **/
+    bool saveImage32() noexcept {
+        /** create the tiff file. **/
+        TIFF *tiff = TIFFOpen(save_file_name_.c_str(), "w");
+        if (tiff == nullptr) {
+            LOG("CaptureThread Failed to create tiff file: "<<save_file_name_);
+            return false;
+        }
+
+        /** do some tiff things. **/
+        int wd = img_->width_;
+        int ht = img_->height_;
+        LOG("wd="<<wd<<" ht="<<ht);
+        TIFFSetField(tiff, TIFFTAG_IMAGEWIDTH, wd);
+        TIFFSetField(tiff, TIFFTAG_IMAGELENGTH, ht);
+        TIFFSetField(tiff, TIFFTAG_SAMPLESPERPIXEL, 3);
+        TIFFSetField(tiff, TIFFTAG_BITSPERSAMPLE, 32);
+        TIFFSetField(tiff, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
+        TIFFSetField(tiff, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
+        TIFFSetField(tiff, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_RGB);
+
+        /** after we do the above. **/
+        int default_strip_size = TIFFDefaultStripSize(tiff, 3 * wd);
+        TIFFSetField(tiff, TIFFTAG_ROWSPERSTRIP, default_strip_size);
+
+        /** allocate a tiff-sized scanline. **/
+        int scanline_size = TIFFScanlineSize(tiff);
+        auto buffer = new(std::nothrow) char[scanline_size];
+
+        /** zero the trailing bytes. **/
+        int src_sz = 3 * sizeof(agm::int32) * wd;
+        for (int i = src_sz; i < scanline_size; ++i) {
+            buffer[i] = 0;
+        }
+
+        /** find the max for scaling. **/
+        int scale = 0;
+        auto src = (agm::int32 *) rgb32_.data;
+        int sz = 3 * ht * wd;
+        for (int i = 0; i < sz; ++i) {
+            int val = *src++;
+            scale = std::max(scale, val);
+        }
+        LOG("scale="<<scale);
+
+        /** write all scanlines. **/
+        bool success = true;
+        src = (agm::int32 *) rgb32_.data;
+        for (int y = 0; y < ht; ++y) {
+            auto dst = (agm::int32 *) buffer;
+            for (int x = 0; x < wd; ++x) {
+                /** convert opencv BGR to tiff RGB. **/
+                dst[0] = scale32(src[2], scale);
+                dst[1] = scale32(src[1], scale);
+                dst[2] = scale32(src[0], scale);
+                src += 3;
+                dst += 3;
+            }
+            int result = TIFFWriteScanline(tiff, buffer, y, 0);
+            if (result < 0) {
+                success = false;
+                break;
+            }
+        }
+
+        if (success == false) {
+            LOG("CaptureThread Failed to write tiff file: "<<save_file_name_);
+        }
+
+        delete[] buffer;
+        TIFFClose(tiff);
+
+        return success;
+    }
+
+    int scale32(
+        int src,
+        int scale
+    ) noexcept {
+        static const int kInt32Max = 0x7FFFFFF;
+        agm::int64 x = src;
+        x *= kInt32Max;
+        x /= scale;
+        return x;
+    }
+
+    /** save the 8 bit image using opencv. **/
+    bool saveImage8() noexcept {
+        /** this is why you do not throw exceptions ever. **/\
         bool success = false;
         try {
             success = cv::imwrite(save_file_name_, rgb8_gamma_);
-            LOG("CaptureThread Saved image to file: "<<save_file_name_);
         } catch (const cv::Exception& ex) {
             LOG("CaptureThread Failed to save image to file: "<<save_file_name_<<" OpenCV reason: "<<ex.what());
         }
-
-        /** disable stacking. **/
-        if (success && accumulate_) {
-            accumulate_ = 0;
-            nstacked_ = 0;
-            rgb32_ = 0;
-
-            std::lock_guard<std::mutex> lock(settings_buffer_->mutex_);
-            settings_buffer_->accumulate_ = false;
-        }
+        return success;
     }
 };
 }
