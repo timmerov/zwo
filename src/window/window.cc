@@ -747,7 +747,11 @@ public:
     void experimentPolaris() noexcept {
         if (polaris_.rows == 0) {
             /** load the polaris 8 bit grayscale image. **/
-            polaris_ = cv::imread("data/polaris.png", cv::IMREAD_UNCHANGED);
+            //auto fname = "data/polaris.png";
+            auto fname = "data/polaris-45-left.bmp";
+            //auto fname = "data/polaris-45-right.bmp";
+            //auto fname = "data/corvus.jpeg";
+            polaris_ = cv::imread(fname, cv::IMREAD_UNCHANGED);
             int wd = polaris_.cols;
             int ht = polaris_.rows;
             LOG("polaris wd="<<wd<<" ht="<<ht);
