@@ -228,8 +228,18 @@ public:
         }
 
         /** some panics. **/
+        if (hi == 0) {
+            return;
+        }
         if (hi < 50000) {
-            exposure_ = exposure_ * 56000 / hi;
+            /** guard against overflow. **/
+            agm::int64 x = exposure_;
+            x = x * 56000 / hi;
+            /** arbitrarily limit auto exposure to 100 us and 30s. **/
+            static const agm::int64 k100us = 100;
+            static const agm::int64 k30s = 30*1000*1000;
+            x = std::max(k100us, std::min(x, k30s));
+            exposure_ = x;
             LOG("new auto exposure="<<exposure_);
             writeSettings();
         }
