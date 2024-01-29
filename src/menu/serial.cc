@@ -18,21 +18,8 @@ actual settings came from digging through indi driver code.
 #include <aggiornamento/aggiornamento.h>
 #include <aggiornamento/log.h>
 
-class SerialConnection {
-public:
-    SerialConnection() noexcept;
-    SerialConnection(const SerialConnection &) = delete;
-    ~SerialConenction() noexcept;
+#include "serial.h"
 
-    bool open() noexcept;
-    bool isopen() noexcept;
-    void write(std::string &cmd);
-    std::string read();
-    void close() noexcept;
-
-private:
-    int fd = -1;
-};
 
 SerialConnection::SerialConnection() noexcept {
 }
@@ -49,7 +36,7 @@ bool SerialConnection::open() noexcept {
     static const auto kBaud = B9600;
 
     /** open the serial port. **/
-    int fd = open(kDevicePath, O_RDWR | O_NOCTTY);
+    int fd = ::open(kDevicePath, O_RDWR | O_NOCTTY);
     if (fd < 0) {
         return false;
     }
@@ -130,10 +117,11 @@ bool SerialConnection::open() noexcept {
 }
 
 void SerialConnection::write(
-    std::string *cmd
+    std::string &cmd
 ) noexcept {
     int len = cmd.length();
-    int result = write(fd_, cmd, len);
+    int result = ::write(fd_, cmd.c_str(), len);
+    (void) result;
 }
 
 std::string SerialConnection::read() noexcept {
@@ -141,46 +129,31 @@ std::string SerialConnection::read() noexcept {
 
     /** let's just assume 100 bytes is enough. **/
     char buffer[100];
-    sz = sizeof(buffer)-1;
+    int sz = sizeof(buffer)-1;
     for (int i = 0; i <= sz; ++i) {
         buffer[i] = 0;
     }
 
-    /** read bytes until we get a # **/
-    bool end_of_input = false;
-    auto cp = &buffer[0];
-    for(;;) {
-        /** use the select method. **/
-        struct timeval timeout;
-        fd_set fds;
-        FD_ZERO(&fds);
-        FD_SET(fd_, &fds);
-        timeout.tv_sec = 1;
-        timeout.tv_usec = 0;
-        int result = select(FD_SETSIZE, &fds, NULL, NULL, &timeout);
-        if (result != 1) {
-            break;
-        }
-        int nread = read(fd_, cp, sz);
+    /** use the select method. **/
+    struct timeval timeout;
+    fd_set fds;
+    FD_ZERO(&fds);
+    FD_SET(fd_, &fds);
+    timeout.tv_sec = 0;
+    timeout.tv_usec = 100*1000;
+    int result = ::select(FD_SETSIZE, &fds, NULL, NULL, &timeout);
+    if (result == 1) {
+        int nread = ::read(fd_, buffer, sz);
         if (nread > 0) {
-            for (int i = 0; i < nread; ++i) {
-                if (cp[i] == '#') {
-                    cp[i+1] = 0;
-                    end_of_input = true;
-                    break;
-                }
-            }
-            if (end_of_input) {
-                reply = buffer;
-                break;
-            }
+            buffer[nread] = 0;
         }
-
-        return reply;
     }
+    reply = buffer;
+
+    return reply;
 }
 
 void SerialConnection::close() noexcept {
-    close(fd_);
+    ::close(fd_);
     fd_ = -1;
 }
