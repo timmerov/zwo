@@ -174,7 +174,7 @@ void Ioptron::connect() noexcept {
     agm::sleep::seconds(2);
     port_.write(":ST0#");
     response = port_.read(1);
-    LOG("IOptron Stop tracking [:ST1#]: "<<response);
+    LOG("IOptron Stop tracking [:ST0#]: "<<response);
 
     agm::sleep::seconds(2);
     port_.write(":MH#");
