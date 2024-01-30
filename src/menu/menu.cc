@@ -18,6 +18,8 @@ run the menu thread.
 
 #include <shared/settings_buffer.h>
 
+#include "ioptron.h"
+
 
 namespace {
 class MenuThread : public agm::Thread {
@@ -25,6 +27,7 @@ public:
     agm::NonBlockingInput nbi_;
     SettingsBuffer *settings_ = nullptr;
     std::string input_;
+    Ioptron mount_;
 
     MenuThread(
         SettingsBuffer *settings_buffer
@@ -35,6 +38,7 @@ public:
 
     virtual void begin() noexcept {
         LOG("MenuThread");
+        mount_.connect();
     }
 
     /** run until we're told to stop. **/
@@ -46,6 +50,7 @@ public:
 
     virtual void end() noexcept {
         LOG("MenuThread");
+        mount_.disconnect();
     }
 
     void parse_input() noexcept {

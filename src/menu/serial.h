@@ -19,7 +19,7 @@ public:
     bool open() noexcept;
 
     bool isopen() noexcept;
-    void write(std::string &cmd) noexcept;
+    void write(const char *cmd) noexcept;
     std::string read() noexcept;
     void close() noexcept;
 

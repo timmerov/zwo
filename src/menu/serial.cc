@@ -20,6 +20,12 @@ actual settings came from digging through indi driver code.
 
 #include "serial.h"
 
+/**
+we do need to wait for a response.
+10 ms is not long enough.
+**/
+static const int kTimeoutSeconds = 0;
+static const int kTimeoutMicroseconds = 100*1000;
 
 SerialConnection::SerialConnection() noexcept {
 }
@@ -36,18 +42,17 @@ bool SerialConnection::open() noexcept {
     static const auto kBaud = B9600;
 
     /** open the serial port. **/
-    int fd = ::open(kDevicePath, O_RDWR | O_NOCTTY);
-    if (fd < 0) {
+    fd_ = ::open(kDevicePath, O_RDWR | O_NOCTTY);
+    if (fd_ < 0) {
         return false;
     }
-    LOG("fd="<<fd<<" fail=-1");
 
     /**
     the spec says you cannot set attributes cold.
     you must modify the current attributes.
     **/
     struct termios tty;
-    int result = tcgetattr(fd, &tty);
+    int result = tcgetattr(fd_, &tty);
     if (result != 0) {
         close();
         return false;
@@ -88,7 +93,7 @@ bool SerialConnection::open() noexcept {
     tty.c_cc[VTIME] = 10;
     /** read a minimum of 0 bytes. **/
     tty.c_cc[VMIN] = 0;
-    result = tcsetattr(fd, TCSANOW, &tty);
+    result = tcsetattr(fd_, TCSANOW, &tty);
     if (result != 0) {
         close();
         return false;
@@ -102,12 +107,12 @@ bool SerialConnection::open() noexcept {
     }
 
     /** flush any garbage. **/
-    result = tcflush(fd, TCIFLUSH);
+    result = tcflush(fd_, TCIFLUSH);
     if (result != 0) {
         close();
         return false;
     }
-    result = tcflush(fd, TCOFLUSH);
+    result = tcflush(fd_, TCOFLUSH);
     if (result != 0) {
         close();
         return false;
@@ -117,15 +122,21 @@ bool SerialConnection::open() noexcept {
 }
 
 void SerialConnection::write(
-    std::string &cmd
+    const char *cmd
 ) noexcept {
-    int len = cmd.length();
-    int result = ::write(fd_, cmd.c_str(), len);
+    if (fd_ < 0) {
+        return;
+    }
+    int len = strlen(cmd);
+    int result = ::write(fd_, cmd, len);
     (void) result;
 }
 
 std::string SerialConnection::read() noexcept {
     std::string reply;
+    if (fd_ < 0) {
+        return reply;
+    }
 
     /** let's just assume 100 bytes is enough. **/
     char buffer[100];
@@ -136,17 +147,23 @@ std::string SerialConnection::read() noexcept {
 
     /** use the select method. **/
     struct timeval timeout;
-    fd_set fds;
-    FD_ZERO(&fds);
-    FD_SET(fd_, &fds);
-    timeout.tv_sec = 0;
-    timeout.tv_usec = 100*1000;
-    int result = ::select(FD_SETSIZE, &fds, NULL, NULL, &timeout);
-    if (result == 1) {
-        int nread = ::read(fd_, buffer, sz);
-        if (nread > 0) {
-            buffer[nread] = 0;
+    auto cp = buffer;
+    while (sz > 0) {
+        fd_set fds;
+        FD_ZERO(&fds);
+        FD_SET(fd_, &fds);
+        timeout.tv_sec = kTimeoutSeconds;
+        timeout.tv_usec = kTimeoutMicroseconds;
+        int result = ::select(FD_SETSIZE, &fds, NULL, NULL, &timeout);
+        if (result == 0) {
+            break;
         }
+        int nread = ::read(fd_, cp, sz);
+        if (nread <= 0) {
+            break;
+        }
+        cp += nread;
+        sz -= nread;
     }
     reply = buffer;
 
