@@ -143,13 +143,43 @@ void Ioptron::connect() noexcept {
     }
 
     port_.write(":MountInfo#");
-    auto response = port_.read();
+    auto response = port_.read(4);
     if (response.empty()) {
         response = "MOUNT NOT CONNECTED";
     } else if (response == "0011") {
         response = "IOptron SmartEQ Pro+";
     }
-    LOG("IOptron Mount Info [:MountInfo#]: "<<response);
+    LOG("IOptron Mount type [:MountInfo#]: "<<response);
+
+    port_.write(":RT0#");
+    response = port_.read(1);
+    LOG("IOptron Set sidereal tracking rate [:RT0#]: "<<response);
+
+    port_.write(":ST1#");
+    response = port_.read(1);
+    LOG("IOptron Started tracking [:ST1#]: "<<response);
+
+    agm::sleep::seconds(2);
+
+    port_.write(":mn#");
+    LOG("IOptron Moving north...");
+    port_.write(":me#");
+    LOG("IOptron Moving east...");
+
+    agm::sleep::seconds(2);
+    port_.write(":q#");
+    response = port_.read(1);
+    LOG("IOptron Stopped: "<<response);
+
+    agm::sleep::seconds(2);
+    port_.write(":ST0#");
+    response = port_.read(1);
+    LOG("IOptron Stop tracking [:ST1#]: "<<response);
+
+    agm::sleep::seconds(2);
+    port_.write(":MH#");
+    response = port_.read(1);
+    LOG("IOptron Slew to home position [:MH#]: "<<response);
 }
 
 void Ioptron::disconnect() noexcept {

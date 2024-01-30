@@ -30,7 +30,7 @@ public:
     bool capture_black_ = false;
     double balance_red_ = 1.0;
     double balance_blue_ = 1.0;
-    bool auto_exposure_ = true;
+    bool auto_exposure_ = false; //true;
     int exposure_ = 100; /*microseconds*/
     bool show_focus_ = false;
     bool show_histogram_ = false;

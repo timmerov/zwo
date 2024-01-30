@@ -132,7 +132,9 @@ void SerialConnection::write(
     (void) result;
 }
 
-std::string SerialConnection::read() noexcept {
+std::string SerialConnection::read(
+    int nbytes
+) noexcept {
     std::string reply;
     if (fd_ < 0) {
         return reply;
@@ -145,10 +147,16 @@ std::string SerialConnection::read() noexcept {
         buffer[i] = 0;
     }
 
-    /** use the select method. **/
+    /** special cases. **/
+    if (nbytes <= 0 || nbytes > sz) {
+        nbytes = sz;
+    }
+
+    /** read bytes into the buffer. **/
     struct timeval timeout;
     auto cp = buffer;
-    while (sz > 0) {
+    while (nbytes > 0) {
+        /** use the select method. **/
         fd_set fds;
         FD_ZERO(&fds);
         FD_SET(fd_, &fds);
@@ -156,14 +164,25 @@ std::string SerialConnection::read() noexcept {
         timeout.tv_usec = kTimeoutMicroseconds;
         int result = ::select(FD_SETSIZE, &fds, NULL, NULL, &timeout);
         if (result == 0) {
-            break;
+            continue;
         }
-        int nread = ::read(fd_, cp, sz);
+        /** read bytes. **/
+        int nread = ::read(fd_, cp, nbytes);
         if (nread <= 0) {
             break;
         }
+        /** stop when we get to a '#'. **/
+        for (int i = 0; i < nread; ++i) {
+            if (cp[i] == '#') {
+                cp[i+1] = 0;
+                nread = nbytes;
+                break;
+            }
+        }
+
+        /** advance the buffer pointers. **/
         cp += nread;
-        sz -= nread;
+        nbytes -= nread;
     }
     reply = buffer;
 
