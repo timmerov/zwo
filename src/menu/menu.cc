@@ -27,7 +27,7 @@ public:
     agm::NonBlockingInput nbi_;
     SettingsBuffer *settings_ = nullptr;
     std::string input_;
-    Ioptron mount_;
+    Ioptron *mount_;
 
     MenuThread(
         SettingsBuffer *settings_buffer
@@ -38,7 +38,8 @@ public:
 
     virtual void begin() noexcept {
         LOG("MenuThread");
-        mount_.connect();
+        mount_ = Ioptron::create();
+        mount_->connect();
     }
 
     /** run until we're told to stop. **/
@@ -50,7 +51,8 @@ public:
 
     virtual void end() noexcept {
         LOG("MenuThread");
-        mount_.disconnect();
+        mount_->disconnect();
+        delete mount_;
     }
 
     void parse_input() noexcept {

@@ -148,6 +148,7 @@ std::string SerialConnection::read(
     }
 
     /** special cases. **/
+    bool break_on_timeout = (nbytes < 0);
     if (nbytes <= 0 || nbytes > sz) {
         nbytes = sz;
     }
@@ -164,6 +165,9 @@ std::string SerialConnection::read(
         timeout.tv_usec = kTimeoutMicroseconds;
         int result = ::select(FD_SETSIZE, &fds, NULL, NULL, &timeout);
         if (result == 0) {
+            if (break_on_timeout) {
+                break;
+            }
             continue;
         }
         /** read bytes. **/

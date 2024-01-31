@@ -6,19 +6,21 @@ Copyright (C) 2012-2024 tim cotter. All rights reserved.
 drive the ioptron smarteq pro(+) mount.
 **/
 
+#include <cstring>
+
 #include "serial.h"
 
 
 class Ioptron {
-public:
+protected:
     Ioptron() noexcept;
+public:
     Ioptron(const Ioptron &) = delete;
-    ~Ioptron() noexcept;
+    virtual ~Ioptron() noexcept;
+
+    static Ioptron *create() noexcept;
 
     void connect() noexcept;
 
     void disconnect() noexcept;
-
-private:
-    SerialConnection port_;
 };

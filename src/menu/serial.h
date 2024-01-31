@@ -23,9 +23,20 @@ public:
     void write(const char *cmd) noexcept;
 
     /**
-    read up to nbytes.
-    will stop when it receives a '#'.
-    will timeout after 100 ms.
+    read data from the serial port.
+    stops when a '#' is received.
+    stops when the internal buffer is full.
+
+    if nbytes == 0:
+        will block until at least 1 character is returned.
+        will not return an empty string.
+
+    if nbytes > 0:
+        stops when the specified number of bytes is received.
+
+    if nbytes < 0:
+        does not block if there is no data.
+        may return an empty string.
     **/
     std::string read(int nbytes = 0) noexcept;
 

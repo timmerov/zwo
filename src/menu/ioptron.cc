@@ -123,11 +123,179 @@ recently defined DEC.
 
 **/
 
+#include <sstream>
+
 #include <aggiornamento/aggiornamento.h>
 #include <aggiornamento/log.h>
 
 #include "ioptron.h"
 
+namespace {
+class ArcSeconds {
+public:
+    ArcSeconds() noexcept = default;
+    ~ArcSeconds() noexcept = default;
+
+    void fromString(
+        std::string &s
+    ) noexcept {
+        int angle = std::stoi(s);
+        angle_ = double(angle) / 3600.0;
+        angle = std::abs(angle);
+        secs_ = angle % 60;
+        angle /= 60;
+        mins_ = angle % 60;
+        hrs_ = angle / 60;
+        if (angle_ < 0.0) {
+            hrs_ = - hrs_;
+        }
+    }
+
+    void setEastWest() noexcept {
+        if (hrs_ >= 0) {
+            east_west_ = 'E';
+        } else {
+            hrs_ = - hrs_;
+            east_west_ = 'W';
+        }
+    }
+
+    std::string toString() noexcept {
+        std::stringstream ss;
+        ss<<angle_<<" "<<hrs_<<" "<<mins_<<"' "<<secs_<<"\"";
+        if (east_west_) {
+            ss<<" "<<east_west_;
+        }
+        return ss.str();
+    }
+
+    double angle_ = 0.0;
+    int hrs_ = 0;
+    int mins_ = 0;
+    int secs_ = 0;
+    char east_west_ = 0;
+};
+
+class IoptronImpl : public Ioptron {
+public:
+    IoptronImpl() noexcept = default;
+    virtual ~IoptronImpl() noexcept = default;
+
+    SerialConnection port_;
+    bool is_connected_ = false;
+
+    void connect() noexcept {
+        /** open the serial port. **/
+        is_connected_ = port_.open();
+        if (is_connected_ == false) {
+            LOG("Serial cable is not connected.");
+            return;
+        }
+
+        /** required initialize. **/
+        port_.write(":MountInfo#");
+        auto response = port_.read(-1);
+        if (response.empty()) {
+            response = "MOUNT NOT CONNECTED";
+            is_connected_ = false;
+        } else if (response == "0011") {
+            response = "IOptron SmartEQ Pro+";
+        }
+        LOG("IOptron Mount type [:MountInfo#]: "<<response);
+
+        /** bail if connection failed. **/
+        if (is_connected_ == false) {
+            LOG("IOptron mount is not powered or the cable is not connected to the handset.");
+            return;
+        }
+
+        port_.write(":Q#");
+        response = port_.read(1);
+        LOG("IOptron Slewing stopped: "<<response);
+
+        port_.write(":q#");
+        response = port_.read(1);
+        LOG("IOptron Stopped moving by arrow keys: "<<response);
+
+        port_.write(":RT0#");
+        response = port_.read(1);
+        LOG("IOptron Set sidereal tracking rate [:RT0#]: "<<response);
+
+        port_.write(":GLS#");
+        response = port_.read(0);
+        LOG("IOptron Get longitude latitude status [:GLS#]: "<<response);
+        showStatus(response);
+
+        port_.write(":GLT#");
+        response = port_.read(0);
+        LOG("IOptron Get time [:GLT#]: "<<response);
+
+        port_.write(":GEC#");
+        response = port_.read(0);
+        LOG("IOptron Get right ascension and declination [:GEC#]: "<<response);
+
+        port_.write(":GAC#");
+        response = port_.read(0);
+        LOG("IOptron Get altitude and azimuth [:GAC#]: "<<response);
+
+        port_.write(":GAL#");
+        response = port_.read(0);
+        LOG("IOptron Get altitude limit [:GAL#]: "<<response);
+
+    #if 0
+        port_.write(":ST1#");
+        response = port_.read(1);
+        LOG("IOptron Started tracking [:ST1#]: "<<response);
+
+        agm::sleep::seconds(2);
+
+        port_.write(":mn#");
+        LOG("IOptron Moving north...");
+        port_.write(":me#");
+        LOG("IOptron Moving east...");
+
+        agm::sleep::seconds(2);
+        port_.write(":q#");
+        response = port_.read(1);
+        LOG("IOptron Stopped: "<<response);
+
+        agm::sleep::seconds(2);
+        port_.write(":ST0#");
+        response = port_.read(1);
+        LOG("IOptron Stop tracking [:ST0#]: "<<response);
+
+        agm::sleep::seconds(2);
+        port_.write(":MH#");
+        response = port_.read(1);
+        LOG("IOptron Slew to home position [:MH#]: "<<response);
+    #endif
+    }
+
+    void showStatus(
+        std::string &response
+    ) noexcept {
+        ArcSeconds lat;
+        ArcSeconds lng;
+
+        auto s = response.substr(7, 6);
+        lat.fromString(s);
+        lat.angle_ -= 90.0;
+        lat.hrs_ -= 90;
+        s = lat.toString();
+        LOG("IOptron Status latitude: "<<s);
+
+        s = response.substr(0, 7);
+        lng.fromString(s);
+        lng.setEastWest();
+        s = lng.toString();
+        LOG("IOptron Status Longitude: "<<s);
+    }
+
+    void disconnect() noexcept {
+        port_.close();
+    }
+};
+}
 
 Ioptron::Ioptron() noexcept {
 }
@@ -135,53 +303,17 @@ Ioptron::Ioptron() noexcept {
 Ioptron::~Ioptron() noexcept {
 }
 
+Ioptron *Ioptron::create() noexcept {
+    auto impl = new(std::nothrow) IoptronImpl;
+    return impl;
+}
+
 void Ioptron::connect() noexcept {
-    bool is_open = port_.open();
-    if (is_open == false) {
-        LOG("is_open="<<is_open);
-        return;
-    }
-
-    port_.write(":MountInfo#");
-    auto response = port_.read(4);
-    if (response.empty()) {
-        response = "MOUNT NOT CONNECTED";
-    } else if (response == "0011") {
-        response = "IOptron SmartEQ Pro+";
-    }
-    LOG("IOptron Mount type [:MountInfo#]: "<<response);
-
-    port_.write(":RT0#");
-    response = port_.read(1);
-    LOG("IOptron Set sidereal tracking rate [:RT0#]: "<<response);
-
-    port_.write(":ST1#");
-    response = port_.read(1);
-    LOG("IOptron Started tracking [:ST1#]: "<<response);
-
-    agm::sleep::seconds(2);
-
-    port_.write(":mn#");
-    LOG("IOptron Moving north...");
-    port_.write(":me#");
-    LOG("IOptron Moving east...");
-
-    agm::sleep::seconds(2);
-    port_.write(":q#");
-    response = port_.read(1);
-    LOG("IOptron Stopped: "<<response);
-
-    agm::sleep::seconds(2);
-    port_.write(":ST0#");
-    response = port_.read(1);
-    LOG("IOptron Stop tracking [:ST0#]: "<<response);
-
-    agm::sleep::seconds(2);
-    port_.write(":MH#");
-    response = port_.read(1);
-    LOG("IOptron Slew to home position [:MH#]: "<<response);
+    auto impl = (IoptronImpl *) this;
+    impl->connect();
 }
 
 void Ioptron::disconnect() noexcept {
-    port_.close();
+    auto impl = (IoptronImpl *) this;
+    impl->disconnect();
 }
