@@ -223,12 +223,13 @@ public:
 
         port_.write(":GLS#");
         response = port_.read(0);
-        LOG("IOptron Get longitude latitude status [:GLS#]: "<<response);
+        //LOG("IOptron Get longitude latitude status [:GLS#]: "<<response);
         showStatus(response);
 
         port_.write(":GLT#");
         response = port_.read(0);
-        LOG("IOptron Get time [:GLT#]: "<<response);
+        //LOG("IOptron Get time [:GLT#]: "<<response);
+        showTime(response);
 
         port_.write(":GEC#");
         response = port_.read(0);
@@ -282,13 +283,132 @@ public:
         lat.angle_ -= 90.0;
         lat.hrs_ -= 90;
         s = lat.toString();
-        LOG("IOptron Status latitude: "<<s);
+        LOG("IOptron Status Latitude: "<<s);
 
         s = response.substr(0, 7);
         lng.fromString(s);
         lng.setEastWest();
         s = lng.toString();
         LOG("IOptron Status Longitude: "<<s);
+
+        switch (response[13]) {
+        case '0':
+            LOG("IOptron Status GPS: none");
+            break;
+        case '1':
+            LOG("IOptron Status GPS: no data");
+            break;
+        case '2':
+            LOG("IOptron Status GPS: yes");
+            break;
+        default:
+            LOG("IOptron Status GPS: unknown '"<<response[13]<<"'");
+            break;
+        }
+
+        switch (response[14]) {
+        case '0':
+            LOG("IOptron Status System: stopped at non-zero position.");
+            break;
+        case '1':
+            LOG("IOptron Status System: tracking with PEC disabled.");
+            break;
+        case '2':
+            LOG("IOptron Status System: slewing.");
+            break;
+        case '3':
+            LOG("IOptron Status System: auto-guiding.");
+            break;
+        case '4':
+            LOG("IOptron Status System: meridian flipping.");
+            break;
+        case '5':
+            LOG("IOptron Status System: tracking with PEC enabled.");
+            break;
+        case '6':
+            LOG("IOptron Status System: parked.");
+            break;
+        case '7':
+            LOG("IOptron Status System: stopped at zero position.");
+            break;
+        default:
+            LOG("IOptron Status System: unknown '"<<response[14]<<"'");
+            break;
+        }
+
+        switch (response[15]) {
+        case '0':
+            LOG("IOptron Status Tracking rate: sidereal.");
+            break;
+        case '1':
+            LOG("IOptron Status Tracking rate: lunar.");
+            break;
+        case '2':
+            LOG("IOptron Status Tracking rate: solar.");
+            break;
+        case '3':
+            LOG("IOptron Status Tracking rate: king.");
+            break;
+        case '4':
+            LOG("IOptron Status Tracking rate: custom.");
+            break;
+        default:
+            LOG("IOptron Status Tracking rate: unknown '"<<response[15]<<"'");
+            break;
+        }
+
+        LOG("IOptron Status Arrow key slewing rate: "<<response[16]);
+
+        switch (response[17]) {
+        case '1':
+            LOG("IOptron Status Time source: RS-232 or Ethernet port.");
+            break;
+        case '2':
+            LOG("IOptron Status Time source: Hand controller.");
+            break;
+        case '3':
+            LOG("IOptron Status Time source: GPS.");
+            break;
+        default:
+            LOG("IOptron Status Time source: unknown '"<<response[17]<<"'");
+            break;
+        }
+
+        switch (response[18]) {
+        case '0':
+            LOG("IOptron Status Hemisphere: southern");
+            break;
+        case '1':
+            LOG("IOptron Status Hemisphere: northern");
+            break;
+        default:
+            LOG("IOptron Status Time source: unknown '"<<response[18]<<"'");
+            break;
+        }
+    }
+
+    void showTime(
+        std::string &response
+    ) noexcept {
+        auto s = response.substr(0, 4);
+        auto utc = std::stof(s) / 60.0;
+        std::stringstream ss;
+        /** YYYY/MM/DD **/
+        ss<<"20"<<response[5]<<response[6];
+        ss<<"/"<<response[7]<<response[8];
+        ss<<"/"<<response[9]<<response[10];
+        /** HH:MM::SS **/
+        ss<<" "<<response[11]<<response[12];
+        ss<<":"<<response[13]<<response[14];
+        ss<<":"<<response[15]<<response[16];
+        /** utc offset. **/
+        ss<<" UTC";
+        if (utc >= 0.0) {
+            ss<<"+";
+        }
+        ss<<utc;
+
+        LOG("IOptron Time: "<<ss.str());
     }
 
     void disconnect() noexcept {

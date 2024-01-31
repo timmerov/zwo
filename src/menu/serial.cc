@@ -48,6 +48,25 @@ bool SerialConnection::open() noexcept {
     }
 
     /**
+    this is something they do in the indi code.
+    seems reasonable. should we do it?
+
+    indi/libs/indibase/connectionplugins/ttybase.cpp
+    **/
+#if 0
+    // Note that open() follows POSIX semantics: multiple open() calls to the same file will succeed
+    // unless the TIOCEXCL ioctl is issued. This will prevent additional opens except by root-owned
+    // processes.
+    // See tty(4) ("man 4 tty") and ioctl(2) ("man 2 ioctl") for details.
+
+    if (ioctl(t_fd, TIOCEXCL) == -1)
+    {
+        DEBUGFDEVICE(m_DriverName, m_DebugChannel, "Error setting TIOCEXCL on %s - %s(%d).", device, strerror(errno), errno);
+        goto error;
+    }
+#endif
+
+    /**
     the spec says you cannot set attributes cold.
     you must modify the current attributes.
     **/
@@ -58,6 +77,16 @@ bool SerialConnection::open() noexcept {
         return false;
     }
 
+    /**
+    this is what the indi code does.
+    seems to be pretty close to what mbedded.ninja was doing.
+    indi/libs/indibase/connectionplugins/ttybase.cpp
+    **/
+    cfmakeraw(&tty);
+    tty.c_cc[VMIN]  = 1;
+    tty.c_cc[VTIME] = 10;
+
+#if 0
     /**
     again, most of this information came from here:
     https://blog.mbedded.ninja/programming/operating-systems/linux/linux-serial-ports-using-c-cpp/
@@ -93,6 +122,8 @@ bool SerialConnection::open() noexcept {
     tty.c_cc[VTIME] = 10;
     /** read a minimum of 0 bytes. **/
     tty.c_cc[VMIN] = 0;
+#endif
+
     result = tcsetattr(fd_, TCSANOW, &tty);
     if (result != 0) {
         close();
@@ -106,7 +137,45 @@ bool SerialConnection::open() noexcept {
         return false;
     }
 
-    /** flush any garbage. **/
+    /**
+    the indi code does this.
+    indi/libs/indibase/connectionplugins/ttybase.cpp
+    **/
+#if 0
+    // To set the modem handshake lines, use the following ioctls.
+    // See tty(4) ("man 4 tty") and ioctl(2) ("man 2 ioctl") for details.
+
+    if (ioctl(t_fd, TIOCSDTR) == -1) // Assert Data Terminal Ready (DTR)
+    {
+        DEBUGFDEVICE(m_DriverName, m_DebugChannel, "Error asserting DTR %s - %s(%d).", device, strerror(errno), errno);
+    }
+
+    if (ioctl(t_fd, TIOCCDTR) == -1) // Clear Data Terminal Ready (DTR)
+    {
+        DEBUGFDEVICE(m_DriverName, m_DebugChannel, "Error clearing DTR %s - %s(%d).", device, strerror(errno), errno);
+    }
+
+    handshake = TIOCM_DTR | TIOCM_RTS | TIOCM_CTS | TIOCM_DSR;
+    if (ioctl(t_fd, TIOCMSET, &handshake) == -1)
+        // Set the modem lines depending on the bits set in handshake
+    {
+        DEBUGFDEVICE(m_DriverName, m_DebugChannel, "Error setting handshake lines %s - %s(%d).", device, strerror(errno), errno);
+    }
+
+    // To read the state of the modem lines, use the following ioctl.
+    // See tty(4) ("man 4 tty") and ioctl(2) ("man 2 ioctl") for details.
+
+    if (ioctl(t_fd, TIOCMGET, &handshake) == -1)
+        // Store the state of the modem lines in handshake
+    {
+        DEBUGFDEVICE(m_DriverName, m_DebugChannel, "Error getting handshake lines %s - %s(%d).", device, strerror(errno), errno);
+    }
+#endif
+
+    /**
+    flush any garbage a la:
+    https://blog.mbedded.ninja/programming/operating-systems/linux/linux-serial-ports-using-c-cpp/
+    **/
     result = tcflush(fd_, TCIFLUSH);
     if (result != 0) {
         close();
