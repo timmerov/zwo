@@ -322,11 +322,13 @@ public:
 
         port_.write(":GAC#");
         response = port_.read(0);
-        LOG("IOptron Get altitude and azimuth [:GAC#]: "<<response);
+        showAltitudeAzimuth(response);
 
         port_.write(":GAL#");
         response = port_.read(0);
-        LOG("IOptron Get altitude limit [:GAL#]: "<<response);
+        auto s = response.substr(0, 3);
+        int limit = std::stoi(s);
+        LOG("IOptron Get altitude limit [:GAL#]: "<<limit);
 
     }
 
@@ -481,6 +483,23 @@ public:
         dec.fromDeclination(s);
         s = dec.toString();
         LOG("IOptron Status Declination: "<<s);
+    }
+
+    void showAltitudeAzimuth(
+        std::string &response
+    ) noexcept {
+        ArcSeconds alt;
+        ArcSeconds az;
+
+        auto s = response.substr(9, 9);
+        alt.fromRightAscension(s);
+        s = alt.toString();
+        LOG("IOptron Status Altitude: "<<s);
+
+        s = response.substr(0, 9);
+        az.fromRightAscension(s);
+        s = az.toString();
+        LOG("IOptron Status Azimuth: "<<s);
     }
 
     void disconnect() noexcept {
