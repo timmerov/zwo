@@ -136,33 +136,63 @@ public:
     ArcSeconds() noexcept = default;
     ~ArcSeconds() noexcept = default;
 
-    void fromString(
+    void fromLongitude(
         std::string &s
     ) noexcept {
+        /**
+        range is -648,000 to +648,000.
+        east is positive.
+        resolution is 1 arc-second.
+        **/
         int angle = std::stoi(s);
         angle_ = double(angle) / 3600.0;
         angle = std::abs(angle);
         secs_ = angle % 60;
         angle /= 60;
         mins_ = angle % 60;
-        hrs_ = angle / 60;
-        if (angle_ < 0.0) {
-            hrs_ = - hrs_;
-        }
-    }
+        degs_ = angle / 60;
+        rem_ = 0;
 
-    void setEastWest() noexcept {
-        if (hrs_ >= 0) {
+        /** set E/W for pretty print. **/
+        if (angle_ >= 0) {
             east_west_ = 'E';
         } else {
-            hrs_ = - hrs_;
             east_west_ = 'W';
         }
     }
 
+    void fromLatitude(
+        std::string &s
+    ) noexcept {
+        /**
+        range is 0 to 648,000.
+        resolution is 1 arc-second.
+        value is +90 degrees.
+        **/
+        int angle = std::stoi(s);
+        angle_ = double(angle) / 3600.0;
+        angle = std::abs(angle);
+        secs_ = angle % 60;
+        angle /= 60;
+        mins_ = angle % 60;
+        degs_ = angle / 60;
+
+        /** remove bias. **/
+        angle_ -= 90.0;
+        degs_ -= 90;
+    }
+
     std::string toString() noexcept {
         std::stringstream ss;
-        ss<<angle_<<" "<<hrs_<<" "<<mins_<<"' "<<secs_<<"\"";
+        ss<<angle_<<" "<<degs_<<" "<<mins_<<"' "<<secs_;
+        if (rem_) {
+            ss<<".";
+            if (rem_ < 10) {
+                ss<<"0";
+            }
+            ss<<rem_;
+        }
+        ss<<"\"";
         if (east_west_) {
             ss<<" "<<east_west_;
         }
@@ -170,9 +200,10 @@ public:
     }
 
     double angle_ = 0.0;
-    int hrs_ = 0;
+    int degs_ = 0;
     int mins_ = 0;
     int secs_ = 0;
+    int rem_ = 0;
     char east_west_ = 0;
 };
 
@@ -279,15 +310,12 @@ public:
         ArcSeconds lng;
 
         auto s = response.substr(7, 6);
-        lat.fromString(s);
-        lat.angle_ -= 90.0;
-        lat.hrs_ -= 90;
+        lat.fromLatitude(s);
         s = lat.toString();
         LOG("IOptron Status Latitude: "<<s);
 
         s = response.substr(0, 7);
-        lng.fromString(s);
-        lng.setEastWest();
+        lng.fromLongitude(s);
         s = lng.toString();
         LOG("IOptron Status Longitude: "<<s);
 
