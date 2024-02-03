@@ -147,11 +147,10 @@ public:
         int angle = std::stoi(s);
         angle_ = double(angle) / 3600.0;
         angle = std::abs(angle);
-        secs_ = angle % 60;
+        secs_ = double(angle % 60);
         angle /= 60;
         mins_ = angle % 60;
         degs_ = angle / 60;
-        rem_ = 0;
 
         /** set E/W for pretty print. **/
         if (angle_ >= 0) {
@@ -172,7 +171,7 @@ public:
         int angle = std::stoi(s);
         angle_ = double(angle) / 3600.0;
         angle = std::abs(angle);
-        secs_ = angle % 60;
+        secs_ = double(angle % 60);
         angle /= 60;
         mins_ = angle % 60;
         degs_ = angle / 60;
@@ -182,17 +181,45 @@ public:
         degs_ -= 90;
     }
 
+    void fromDeclination(
+        std::string &s
+    ) noexcept {
+        /**
+        range is -32,400,000 to +32,400,000.
+        resolution is 0.01 arc-second.
+        **/
+        int angle = std::stoi(s);
+        angle_ = double(angle) / 360000.0;
+        angle = std::abs(angle);
+        secs_ = double(angle % 6000) / 100.0;
+        angle /= 6000;
+        mins_ = angle % 60;
+        degs_ = angle / 60;
+
+        if (angle_ < 0.0) {
+            degs_ = - degs_;
+        }
+    }
+
+    void fromRightAscension(
+        std::string &s
+    ) noexcept {
+        /**
+        range is 0 to +86,400,000.
+        resolution is 0.001 milli-second.
+        **/
+        int angle = std::stoi(s);
+        angle_ = double(angle) / 3600000.0;
+        angle = std::abs(angle);
+        secs_ = double(angle % 60000) / 1000.0;
+        angle /= 60000;
+        mins_ = angle % 60;
+        degs_ = angle / 60;
+    }
+
     std::string toString() noexcept {
         std::stringstream ss;
-        ss<<angle_<<" "<<degs_<<" "<<mins_<<"' "<<secs_;
-        if (rem_) {
-            ss<<".";
-            if (rem_ < 10) {
-                ss<<"0";
-            }
-            ss<<rem_;
-        }
-        ss<<"\"";
+        ss<<angle_<<" "<<degs_<<" "<<mins_<<"' "<<secs_<<"\"";
         if (east_west_) {
             ss<<" "<<east_west_;
         }
@@ -202,8 +229,7 @@ public:
     double angle_ = 0.0;
     int degs_ = 0;
     int mins_ = 0;
-    int secs_ = 0;
-    int rem_ = 0;
+    double secs_ = 0.0;
     char east_west_ = 0;
 };
 
@@ -240,6 +266,11 @@ public:
             return;
         }
 
+        port_.write(":RT0#");
+        response = port_.read(1);
+        LOG("IOptron Set sidereal tracking rate [:RT0#]: "<<response);
+
+    #if 0
         port_.write(":Q#");
         response = port_.read(1);
         LOG("IOptron Slewing stopped: "<<response);
@@ -248,33 +279,6 @@ public:
         response = port_.read(1);
         LOG("IOptron Stopped moving by arrow keys: "<<response);
 
-        port_.write(":RT0#");
-        response = port_.read(1);
-        LOG("IOptron Set sidereal tracking rate [:RT0#]: "<<response);
-
-        port_.write(":GLS#");
-        response = port_.read(0);
-        //LOG("IOptron Get longitude latitude status [:GLS#]: "<<response);
-        showStatus(response);
-
-        port_.write(":GLT#");
-        response = port_.read(0);
-        //LOG("IOptron Get time [:GLT#]: "<<response);
-        showTime(response);
-
-        port_.write(":GEC#");
-        response = port_.read(0);
-        LOG("IOptron Get right ascension and declination [:GEC#]: "<<response);
-
-        port_.write(":GAC#");
-        response = port_.read(0);
-        LOG("IOptron Get altitude and azimuth [:GAC#]: "<<response);
-
-        port_.write(":GAL#");
-        response = port_.read(0);
-        LOG("IOptron Get altitude limit [:GAL#]: "<<response);
-
-    #if 0
         port_.write(":ST1#");
         response = port_.read(1);
         LOG("IOptron Started tracking [:ST1#]: "<<response);
@@ -303,7 +307,30 @@ public:
     #endif
     }
 
-    void showStatus(
+    void showStatus() noexcept {
+        port_.write(":GLS#");
+        auto response = port_.read(0);
+        showInfo(response);
+
+        port_.write(":GLT#");
+        response = port_.read(0);
+        showTime(response);
+
+        port_.write(":GEC#");
+        response = port_.read(0);
+        showRightAscensionDeclination(response);
+
+        port_.write(":GAC#");
+        response = port_.read(0);
+        LOG("IOptron Get altitude and azimuth [:GAC#]: "<<response);
+
+        port_.write(":GAL#");
+        response = port_.read(0);
+        LOG("IOptron Get altitude limit [:GAL#]: "<<response);
+
+    }
+
+    void showInfo(
         std::string &response
     ) noexcept {
         ArcSeconds lat;
@@ -439,6 +466,23 @@ public:
         LOG("IOptron Time: "<<ss.str());
     }
 
+    void showRightAscensionDeclination(
+        std::string &response
+    ) noexcept {
+        ArcSeconds ra;
+        ArcSeconds dec;
+
+        auto s = response.substr(9, 8);
+        ra.fromRightAscension(s);
+        s = ra.toString();
+        LOG("IOptron Status Right Ascension: "<<s);
+
+        s = response.substr(0, 9);
+        dec.fromDeclination(s);
+        s = dec.toString();
+        LOG("IOptron Status Declination: "<<s);
+    }
+
     void disconnect() noexcept {
         port_.close();
     }
@@ -459,6 +503,11 @@ Ioptron *Ioptron::create() noexcept {
 void Ioptron::connect() noexcept {
     auto impl = (IoptronImpl *) this;
     impl->connect();
+}
+
+void Ioptron::showStatus() noexcept {
+    auto impl = (IoptronImpl *) this;
+    impl->showStatus();
 }
 
 void Ioptron::disconnect() noexcept {

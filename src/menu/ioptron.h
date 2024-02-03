@@ -22,5 +22,7 @@ public:
 
     void connect() noexcept;
 
+    void showStatus() noexcept;
+
     void disconnect() noexcept;
 };

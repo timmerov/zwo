@@ -90,6 +90,11 @@ public:
             toggleHistogram();
             break;
 
+        case 'm':
+        case 'M':
+            handleMount();
+            break;
+
         case 'q':
         case 'Q':
         case 27: /*escape*/
@@ -130,8 +135,9 @@ public:
         LOG("  E,e usecs    : set exposure microseconds: "<<settings_->exposure_<<" (disables auto exposure)");
         LOG("  F,f [+-01yn] : toggle manual focus helper: "<<settings_->show_focus_);
         LOG("  H,h [+-01yn] : toggle histogram: "<<settings_->show_histogram_);
-        LOG("  R,r [+-01yn] : toggle fps (frame Rate): "<<settings_->show_fps_);
+        LOG("  Mi,mi        : show mount info");
         LOG("  Q,q,esc      : quit");
+        LOG("  R,r [+-01yn] : toggle fps (frame Rate): "<<settings_->show_fps_);
         LOG("  S,s file     : save the image (disables stacking).");
         LOG("  X,x          : run the experiment of the day");
         LOG("  ?            : show help");
@@ -200,6 +206,18 @@ public:
         LOG("MenuThread show fps (frame rate): "<<new_fps);
         std::lock_guard<std::mutex> lock(settings_->mutex_);
         settings_->show_fps_ = new_fps;
+    }
+
+    void handleMount() noexcept {
+        switch (input_[1]) {
+        case 'i':
+        case 'I':
+            mount_->showStatus();
+            break;
+        default:
+            LOG("Unknown command for mount.");
+            break;
+        }
     }
 
     /** parse the input as a number. **/
