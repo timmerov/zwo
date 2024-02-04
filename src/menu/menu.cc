@@ -34,7 +34,10 @@ public:
     ) noexcept : agm::Thread("MenuThread") {
         settings_ = settings_buffer;
     }
-    virtual ~MenuThread() = default;
+
+    virtual ~MenuThread() noexcept {
+        delete mount_;
+    }
 
     virtual void begin() noexcept {
         LOG("MenuThread");

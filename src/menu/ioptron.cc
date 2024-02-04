@@ -241,12 +241,12 @@ public:
     SerialConnection port_;
     bool is_connected_ = false;
 
-    void connect() noexcept {
+    bool connect() noexcept {
         /** open the serial port. **/
         is_connected_ = port_.open();
         if (is_connected_ == false) {
             LOG("Serial cable is not connected.");
-            return;
+            return false;
         }
 
         /** required initialize. **/
@@ -263,7 +263,7 @@ public:
         /** bail if connection failed. **/
         if (is_connected_ == false) {
             LOG("IOptron mount is not powered or the cable is not connected to the handset.");
-            return;
+            return false;
         }
 
         port_.write(":RT0#");
@@ -305,6 +305,8 @@ public:
         response = port_.read(1);
         LOG("IOptron Slew to home position [:MH#]: "<<response);
     #endif
+
+        return true;
     }
 
     void showStatus() noexcept {
@@ -524,9 +526,15 @@ Ioptron *Ioptron::create() noexcept {
     return impl;
 }
 
-void Ioptron::connect() noexcept {
+bool Ioptron::connect() noexcept {
     auto impl = (IoptronImpl *) this;
-    impl->connect();
+    bool result = impl->connect();
+    return result;
+}
+
+bool Ioptron::isConnected() noexcept {
+    auto impl = (IoptronImpl *) this;
+    return impl->is_connected_;
 }
 
 void Ioptron::showStatus() noexcept {

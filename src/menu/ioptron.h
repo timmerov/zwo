@@ -20,7 +20,9 @@ public:
 
     static Ioptron *create() noexcept;
 
-    void connect() noexcept;
+    bool connect() noexcept;
+
+    bool isConnected() noexcept;
 
     void showStatus() noexcept;
 
