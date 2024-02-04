@@ -308,6 +308,11 @@ public:
     }
 
     void showStatus() noexcept {
+        if (is_connected_ == false) {
+            LOG("Ioptron mount is not connected.");
+            return;
+        }
+
         port_.write(":GLS#");
         auto response = port_.read(0);
         showInfo(response);

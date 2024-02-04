@@ -12,6 +12,7 @@ actual settings came from digging through indi driver code.
 **/
 
 #include <fcntl.h>
+#include <sys/ioctl.h>
 #include <termios.h>
 #include <unistd.h>
 
@@ -44,6 +45,7 @@ bool SerialConnection::open() noexcept {
     /** open the serial port. **/
     fd_ = ::open(kDevicePath, O_RDWR | O_NOCTTY);
     if (fd_ < 0) {
+        LOG("Unable to open device \""<<kDevicePath<<"\"");
         return false;
     }
 
@@ -52,27 +54,29 @@ bool SerialConnection::open() noexcept {
     seems reasonable. should we do it?
 
     indi/libs/indibase/connectionplugins/ttybase.cpp
-    **/
-#if 0
-    // Note that open() follows POSIX semantics: multiple open() calls to the same file will succeed
-    // unless the TIOCEXCL ioctl is issued. This will prevent additional opens except by root-owned
-    // processes.
-    // See tty(4) ("man 4 tty") and ioctl(2) ("man 2 ioctl") for details.
 
-    if (ioctl(t_fd, TIOCEXCL) == -1)
-    {
-        DEBUGFDEVICE(m_DriverName, m_DebugChannel, "Error setting TIOCEXCL on %s - %s(%d).", device, strerror(errno), errno);
-        goto error;
+    their comments:
+
+    Note that open() follows POSIX semantics: multiple open() calls to the same file will succeed
+    unless the TIOCEXCL ioctl is issued. This will prevent additional opens except by root-owned processes.
+    See tty(4) ("man 4 tty") and ioctl(2) ("man 2 ioctl") for details.
+    **/
+
+    int result = ioctl(fd_, TIOCEXCL);
+    if (result != 0) {
+        LOG("Unable to get exclusive use of the device.");
+        close();
+        return false;
     }
-#endif
 
     /**
     the spec says you cannot set attributes cold.
     you must modify the current attributes.
     **/
     struct termios tty;
-    int result = tcgetattr(fd_, &tty);
+    result = tcgetattr(fd_, &tty);
     if (result != 0) {
+        LOG("Unable to get device attributes.");
         close();
         return false;
     }
@@ -126,6 +130,7 @@ bool SerialConnection::open() noexcept {
 
     result = tcsetattr(fd_, TCSANOW, &tty);
     if (result != 0) {
+        LOG("Unable to set device attributes.");
         close();
         return false;
     }
@@ -133,6 +138,7 @@ bool SerialConnection::open() noexcept {
     /** set baud rate for both input and output. **/
     result = cfsetspeed(&tty, kBaud);
     if (result != 0) {
+        LOG("Unable to set device speed.");
         close();
         return false;
     }
@@ -178,11 +184,13 @@ bool SerialConnection::open() noexcept {
     **/
     result = tcflush(fd_, TCIFLUSH);
     if (result != 0) {
+        LOG("Unable to flush input from device.");
         close();
         return false;
     }
     result = tcflush(fd_, TCOFLUSH);
     if (result != 0) {
+        LOG("Unable to flush output from device.");
         close();
         return false;
     }
