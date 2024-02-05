@@ -737,7 +737,6 @@ public:
 
     void experimentOrion() noexcept {
         auto in_fname = "data/orionsbelt.png";
-        auto out_fname = "orionsbelt.bmp";
         auto orion_ = cv::imread(in_fname, cv::IMREAD_UNCHANGED);
         int wd = orion_.cols;
         int ht = orion_.rows;
@@ -810,9 +809,12 @@ public:
         mintaka at 656 201
         nearest bright star is 200 pixels away.
         **/
+        auto out_fname = "alnitak.bmp";
+        auto out_fname = "alnilam.bmp";
+        auto out_fname = "mintaka.bmp";
         //encircleStar(orion_diff_, 258, 497);
-        encircleStar(orion_diff_, 464, 364);
-        //encircleStar(orion_diff_, 656, 201);
+        //encircleStar(orion_diff_, 464, 364);
+        encircleStar(orion_diff_, 656, 201);
 
         /** convert 16 bit grayscale to 16 bit rgb. **/
         rgb16_ = cv::Mat(ht, wd, CV_16UC3);
