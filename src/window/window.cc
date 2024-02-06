@@ -737,6 +737,7 @@ public:
 
     void experimentOrion() noexcept {
         auto in_fname = "data/orionsbelt.png";
+        auto out_fname = "signatures.bmp";
         auto orion_ = cv::imread(in_fname, cv::IMREAD_UNCHANGED);
         int wd = orion_.cols;
         int ht = orion_.rows;
@@ -809,12 +810,12 @@ public:
         mintaka at 656 201
         nearest bright star is 200 pixels away.
         **/
-        auto out_fname = "alnitak.bmp";
-        auto out_fname = "alnilam.bmp";
-        auto out_fname = "mintaka.bmp";
-        //encircleStar(orion_diff_, 258, 497);
-        //encircleStar(orion_diff_, 464, 364);
-        encircleStar(orion_diff_, 656, 201);
+        auto alnitak = getStarSignature(orion_diff_, 258, 497);
+        auto alnilam = getStarSignature(orion_diff_, 464, 364);
+        auto mintaka = getStarSignature(orion_diff_, 656, 201);
+        plotStarSignature(orion_diff_, alnitak, 258, 497);
+        plotStarSignature(orion_diff_, alnilam, 464, 364);
+        plotStarSignature(orion_diff_, mintaka, 656, 201);
 
         /** convert 16 bit grayscale to 16 bit rgb. **/
         rgb16_ = cv::Mat(ht, wd, CV_16UC3);
@@ -859,14 +860,15 @@ public:
         LOG("saved file \""<<out_fname<<"\"");
     }
 
-    void encircleStar(
+    static const int kIdentifyRadius = 160;
+
+    std::vector<agm::uint16> getStarSignature(
         cv::Mat &img,
         int h,
         int v
     ) noexcept {
         LOG("h="<<h<<" v="<<v);
-        static const int kIdentifyRadius = 160;
-        agm::uint16 table[kIdentifyRadius];
+        std::vector<agm::uint16> table(kIdentifyRadius);
         for (int i = 0; i < kIdentifyRadius; ++i) {
             table[i] = 0;
         }
@@ -874,10 +876,8 @@ public:
         int maxx = h + kIdentifyRadius;
         int miny = v - kIdentifyRadius;
         int maxy = v + kIdentifyRadius;
-        LOG("x="<<minx<<".."<<maxx<<" y="<<miny<<".."<<maxy);
         int wd = img.cols;
         int ht = img.rows;
-        LOG("wd="<<wd<<" ht="<<ht);
         auto src = (agm::uint16 *) img.data;
         for (int y = miny; y <= maxy; ++y) {
             if (0 <= y && y < ht) {
@@ -895,7 +895,6 @@ public:
                             int val = ptr[x];
                             int tbl = table[idx];
                             if (tbl < val) {
-                                //LOG("new table["<<idx<<"]="<<val);
                                 table[idx] = val;
                             }
                         }
@@ -903,6 +902,22 @@ public:
                 }
             }
         }
+        return table;
+    }
+
+    void plotStarSignature(
+        cv::Mat &img,
+        std::vector<agm::uint16> &table,
+        int h,
+        int v
+    ) noexcept {
+        int minx = h - kIdentifyRadius;
+        int maxx = h + kIdentifyRadius;
+        int miny = v - kIdentifyRadius;
+        int maxy = v + kIdentifyRadius;
+        int wd = img.cols;
+        int ht = img.rows;
+        auto src = (agm::uint16 *) img.data;
         for (int y = miny; y <= maxy; ++y) {
             if (0 <= y && y < ht) {
                 double dy = y - v + 0.5;
