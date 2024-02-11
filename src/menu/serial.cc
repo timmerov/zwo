@@ -42,6 +42,11 @@ bool SerialConnection::open() noexcept {
     /** docs say 9600 baud, 8 bits, no parity, 1 stop bit. **/
     static const auto kBaud = B9600;
 
+    /**
+    we're going to follow the indi code.
+    use the *second* implementation of connect.
+    **/
+
     /** open the serial port. **/
     fd_ = ::open(kDevicePath, O_RDWR | O_NOCTTY);
     if (fd_ < 0) {
@@ -50,87 +55,13 @@ bool SerialConnection::open() noexcept {
     }
 
     /**
-    this is something they do in the indi code.
-    seems reasonable. should we do it?
-
-    indi/libs/indibase/connectionplugins/ttybase.cpp
-
-    their comments:
-
-    Note that open() follows POSIX semantics: multiple open() calls to the same file will succeed
-    unless the TIOCEXCL ioctl is issued. This will prevent additional opens except by root-owned processes.
-    See tty(4) ("man 4 tty") and ioctl(2) ("man 2 ioctl") for details.
-    **/
-
-    int result = ioctl(fd_, TIOCEXCL);
-    if (result != 0) {
-        LOG("Unable to get exclusive use of the device.");
-        close();
-        return false;
-    }
-
-    /**
     the spec says you cannot set attributes cold.
     you must modify the current attributes.
     **/
     struct termios tty;
-    result = tcgetattr(fd_, &tty);
+    int result = tcgetattr(fd_, &tty);
     if (result != 0) {
         LOG("Unable to get device attributes.");
-        close();
-        return false;
-    }
-
-    /**
-    this is what the indi code does.
-    seems to be pretty close to what mbedded.ninja was doing.
-    indi/libs/indibase/connectionplugins/ttybase.cpp
-    **/
-    cfmakeraw(&tty);
-    tty.c_cc[VMIN]  = 1;
-    tty.c_cc[VTIME] = 10;
-
-#if 0
-    /**
-    again, most of this information came from here:
-    https://blog.mbedded.ninja/programming/operating-systems/linux/linux-serial-ports-using-c-cpp/
-    **/
-    /** no parity **/
-    tty.c_cflag &= ~PARENB;
-    /** one stop bit **/
-    tty.c_cflag &= ~CSTOPB;
-    /** 8 bits **/
-    tty.c_cflag |= CS8;
-    /** disable hardware control cause no extra wires. **/
-    tty.c_cflag &= ~CRTSCTS;
-    /** disable modem specific signals. **/
-    tty.c_cflag |= CLOCAL;
-    /** enable reading. **/
-    tty.c_cflag |= CREAD;
-    /** do not wait for line feeds. **/
-    tty.c_lflag &= ~ICANON;
-    /** disable echo, erasure, and new lines **/
-    tty.c_lflag &= ~ECHO;
-    tty.c_lflag &= ~ECHOE;
-    tty.c_lflag &= ~ECHONL;
-    /** disable signals **/
-    tty.c_lflag &= ~ISIG;
-    /** disable software flow control. **/
-    tty.c_iflag &= ~(IXON | IXOFF | IXANY);
-    /** disable special handling of input. **/
-    tty.c_iflag &= ~(IGNBRK|BRKINT|PARMRK|ISTRIP|INLCR|IGNCR|ICRNL);
-    /** disable special handling of output. **/
-    tty.c_oflag &= ~OPOST;
-    tty.c_oflag &= ~ONLCR;
-    /** wait 1s (10 deciseconds) for data. **/
-    tty.c_cc[VTIME] = 10;
-    /** read a minimum of 0 bytes. **/
-    tty.c_cc[VMIN] = 0;
-#endif
-
-    result = tcsetattr(fd_, TCSANOW, &tty);
-    if (result != 0) {
-        LOG("Unable to set device attributes.");
         close();
         return false;
     }
@@ -144,53 +75,44 @@ bool SerialConnection::open() noexcept {
     }
 
     /**
-    the indi code does this.
-    indi/libs/indibase/connectionplugins/ttybase.cpp
+    Control Modes
+    set no flow control word size, parity and stop bits.
+    Also don't hangup automatically and ignore modem status.
+    Finally enable receiving characters.
     **/
-#if 0
-    // To set the modem handshake lines, use the following ioctls.
-    // See tty(4) ("man 4 tty") and ioctl(2) ("man 2 ioctl") for details.
+    tty.c_cflag &= ~(CSIZE | CSTOPB | PARENB | PARODD | HUPCL | CRTSCTS);
+    tty.c_cflag |= (CLOCAL | CREAD);
 
-    if (ioctl(t_fd, TIOCSDTR) == -1) // Assert Data Terminal Ready (DTR)
-    {
-        DEBUGFDEVICE(m_DriverName, m_DebugChannel, "Error asserting DTR %s - %s(%d).", device, strerror(errno), errno);
-    }
-
-    if (ioctl(t_fd, TIOCCDTR) == -1) // Clear Data Terminal Ready (DTR)
-    {
-        DEBUGFDEVICE(m_DriverName, m_DebugChannel, "Error clearing DTR %s - %s(%d).", device, strerror(errno), errno);
-    }
-
-    handshake = TIOCM_DTR | TIOCM_RTS | TIOCM_CTS | TIOCM_DSR;
-    if (ioctl(t_fd, TIOCMSET, &handshake) == -1)
-        // Set the modem lines depending on the bits set in handshake
-    {
-        DEBUGFDEVICE(m_DriverName, m_DebugChannel, "Error setting handshake lines %s - %s(%d).", device, strerror(errno), errno);
-    }
-
-    // To read the state of the modem lines, use the following ioctl.
-    // See tty(4) ("man 4 tty") and ioctl(2) ("man 2 ioctl") for details.
-
-    if (ioctl(t_fd, TIOCMGET, &handshake) == -1)
-        // Store the state of the modem lines in handshake
-    {
-        DEBUGFDEVICE(m_DriverName, m_DebugChannel, "Error getting handshake lines %s - %s(%d).", device, strerror(errno), errno);
-    }
-#endif
+    /** 8 bits. **/
+    tty.c_cflag |= CS8;
+    /** no parity. **/
+    ;
+    /** 1 stop bit. **/
+    ;
+    /** Ignore bytes with parity errors and make terminal raw and dumb. **/
+    tty.c_iflag &= ~(PARMRK | ISTRIP | IGNCR | ICRNL | INLCR | IXOFF | IXON | IXANY);
+    tty.c_iflag |= INPCK | IGNPAR | IGNBRK;
+    /** Raw output. **/
+    tty.c_oflag &= ~(OPOST | ONLCR);
 
     /**
-    flush any garbage a la:
-    https://blog.mbedded.ninja/programming/operating-systems/linux/linux-serial-ports-using-c-cpp/
+    Local Modes
+    Don't echo characters. Don't generate signals.
+    Don't process any characters
     **/
-    result = tcflush(fd_, TCIFLUSH);
+    tty.c_lflag &= ~(ICANON | ECHO | ECHOE | ISIG | IEXTEN | NOFLSH | TOSTOP);
+    tty.c_lflag |= NOFLSH;
+    /** blocking read until 1 char arrives **/
+    tty.c_cc[VMIN]  = 1;
+    tty.c_cc[VTIME] = 0;
+
+    /** now clear input and output buffers **/
+    tcflush(fd_, TCIOFLUSH);
+
+    /** activate the new terminal settings **/
+    result = tcsetattr(fd_, TCSANOW, &tty);
     if (result != 0) {
-        LOG("Unable to flush input from device.");
-        close();
-        return false;
-    }
-    result = tcflush(fd_, TCOFLUSH);
-    if (result != 0) {
-        LOG("Unable to flush output from device.");
+        LOG("Unable to set device attributes.");
         close();
         return false;
     }
@@ -271,6 +193,8 @@ std::string SerialConnection::read(
 }
 
 void SerialConnection::close() noexcept {
-    ::close(fd_);
+    if (fd_ >= 0) {
+        ::close(fd_);
+    }
     fd_ = -1;
 }

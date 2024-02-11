@@ -336,7 +336,6 @@ public:
         auto s = response.substr(0, 3);
         int limit = std::stoi(s);
         LOG("IOptron Get altitude limit [:GAL#]: "<<limit);
-
     }
 
     void showInfo(
