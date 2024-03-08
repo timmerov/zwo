@@ -24,11 +24,20 @@ public:
 
     bool isConnected() noexcept;
 
+    /** dump a bunch of mount status. **/
     void showStatus() noexcept;
 
+    /** slew to the currently set home/zero position. **/
     void slewToHomePosition() noexcept;
 
+    /** set the zero/home position to the current position of the mount. **/
     void setZeroPosition() noexcept;
+
+    /** rate is 1 to 9 **/
+    void setSlewingRate(int rate) noexcept;
+
+    /** move the mount n,s,e,w for the specified number of milliseconds. **/
+    void move(int direction, float duration) noexcept;
 
     void disconnect() noexcept;
 };

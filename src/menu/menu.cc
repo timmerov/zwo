@@ -63,60 +63,50 @@ public:
         if (input_.size() == 0) {
             return;
         }
-        switch (input_[0]) {
+        int ch = std::tolower(input_[0]);
+        switch (ch) {
         case 'a':
-        case 'A':
             toggleAccumulate();
             break;
 
         case 'b':
-        case 'B':
             toggleCaptureBlack();
             break;
 
         case 'c':
-        case 'C':
             setColorBalance();
             break;
 
         case 'e':
-        case 'E':
             toggleAutoExposure();
             break;
 
         case 'f':
-        case 'F':
             toggleFocus();
             break;
 
         case 'h':
-        case 'H':
             toggleHistogram();
             break;
 
         case 'm':
-        case 'M':
             handleMount();
             break;
 
         case 'q':
-        case 'Q':
         case 27: /*escape*/
             quit();
             break;
 
         case 'r':
-        case 'R':
             toggleFps();
             break;
 
         case 's':
-        case 'S':
             saveImage();
             break;
 
         case 'x':
-        case 'X':
             experiment();
             break;
 
@@ -132,21 +122,23 @@ public:
 
     void showMenu() noexcept {
         LOG("Menu (not case sensitive unless specified):");
-        LOG("  a [+-01yn] : stack (accumulate) images: "<<settings_->accumulate_);
-        LOG("  b [+-01yn] : toggle capture black: "<<settings_->capture_black_);
-        LOG("  c red blue : set color balance: r="<<settings_->balance_red_<<" b="<<settings_->balance_blue_);
-        LOG("  e [+-01yn] : toggle auto exposure: "<<settings_->auto_exposure_);
-        LOG("  e usecs    : set exposure microseconds: "<<settings_->exposure_<<" (disables auto exposure)");
-        LOG("  f [+-01yn] : toggle manual focus helper: "<<settings_->show_focus_);
-        LOG("  h [+-01yn] : toggle histogram: "<<settings_->show_histogram_);
-        LOG("  mi         : show mount info");
-        LOG("  mh         : slew to home (zero) position");
-        LOG("  mz         : slew to zero (home) position");
-        LOG("  q,esc      : quit");
-        LOG("  r [+-01yn] : toggle fps (frame Rate): "<<settings_->show_fps_);
-        LOG("  s file     : save the image (disables stacking).");
-        LOG("  x          : run the experiment of the day");
-        LOG("  ?          : show help");
+        LOG("  a [+-01yn]   : stack (accumulate) images: "<<settings_->accumulate_);
+        LOG("  b [+-01yn]   : toggle capture black: "<<settings_->capture_black_);
+        LOG("  c red blue   : set color balance: r="<<settings_->balance_red_<<" b="<<settings_->balance_blue_);
+        LOG("  e [+-01yn]   : toggle auto exposure: "<<settings_->auto_exposure_);
+        LOG("  e usecs      : set exposure microseconds: "<<settings_->exposure_<<" (disables auto exposure)");
+        LOG("  f [+-01yn]   : toggle manual focus helper: "<<settings_->show_focus_);
+        LOG("  h [+-01yn]   : toggle histogram: "<<settings_->show_histogram_);
+        LOG("  mi           : show mount info");
+        LOG("  mh           : slew to home (zero) position");
+        LOG("  mm [nsew] ms : slew n,s,e,w for milliseconds");
+        LOG("  mr#          : set slewing rate 1-9");
+        LOG("  mz           : slew to zero (home) position");
+        LOG("  q,esc        : quit");
+        LOG("  r [+-01yn]   : toggle fps (frame Rate): "<<settings_->show_fps_);
+        LOG("  s file       : save the image (disables stacking).");
+        LOG("  x            : run the experiment of the day");
+        LOG("  ?            : show help");
     }
 
     void toggleAccumulate() noexcept {
@@ -215,19 +207,32 @@ public:
     }
 
     void handleMount() noexcept {
-        switch (input_[1]) {
+        int ch = std::tolower(input_[1]);
+        switch (ch) {
         case 'h':
-        case 'H':
             mount_->slewToHomePosition();
             break;
+
         case 'i':
-        case 'I':
             mount_->showStatus();
             break;
+
+        case 'm': {
+            int direction = input_[2];
+            auto s = input_.substr(3);
+            auto duration = std::stof(s);
+            mount_->move(direction, duration);
+        } break;
+
+        case 'r': {
+            int rate = input_[2] - '0';
+            mount_->setSlewingRate(rate);
+        } break;
+
         case 'z':
-        case 'Z':
             mount_->setZeroPosition();
             break;
+
         default:
             LOG("Unknown command for mount.");
             break;

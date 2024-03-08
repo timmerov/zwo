@@ -125,6 +125,8 @@ recently defined DEC.
 
 **/
 
+#include <cmath>
+#include <iomanip>
 #include <sstream>
 
 #include <aggiornamento/aggiornamento.h>
@@ -534,6 +536,76 @@ public:
         LOG("result: "<<response);
     }
 
+    void setSlewingRate(
+        int rate
+    ) noexcept {
+        if (is_connected_ == false) {
+            LOG("Ioptron mount is not connected.");
+            return;
+        }
+        if (rate < 1 || rate > 9) {
+            LOG("Slewing rate must be 1 to 9.");
+            return;
+        }
+
+        LOG("setting slewing rate to "<<rate<<"...");
+        std::stringstream ss;
+        ss<<":SR"<<rate<<"#";
+        port_.write(ss.str().c_str());
+        auto response = port_.read(1);
+        LOG("result: "<<response);
+    }
+
+    void move(
+        int direction,
+        float duration
+    ) noexcept {
+        if (is_connected_ == false) {
+            LOG("Ioptron mount is not connected.");
+            return;
+        }
+
+        const char *sdir = "";
+        direction = std::tolower(direction);
+        switch (direction) {
+        case 'n':
+            sdir = "north";
+            break;
+        case 's':
+            sdir = "south";
+            break;
+        case 'e':
+            sdir = "east";
+            break;
+        case 'w':
+            sdir = "west";
+            break;
+        default:
+            LOG("move direction must be n,s,e,w.");
+            return;
+        }
+
+        /** convert seconds to milliseconds. **/
+        if (duration <= 0.0) {
+            LOG("duration must be at least 1 millisecond.");
+            return;
+        }
+
+        /** cap to maximum. **/
+        duration = std::min(duration, float(99999.0));
+
+        LOG("slewing "<<sdir<<" for "<<duration<<" milliseconds...");
+        std::stringstream ss;
+        ss<<":m"<<char(direction)<<"#";
+        port_.write(ss.str().c_str());
+
+        agm::sleep::milliseconds(duration);
+
+        port_.write(":q#");
+        auto response = port_.read(1);
+        LOG("result: "<<response);
+    }
+
     void disconnect() noexcept {
         port_.close();
     }
@@ -575,6 +647,21 @@ void Ioptron::slewToHomePosition() noexcept {
 void Ioptron::setZeroPosition() noexcept {
     auto impl = (IoptronImpl *) this;
     impl->setZeroPosition();
+}
+
+void Ioptron::setSlewingRate(
+    int rate
+) noexcept {
+    auto impl = (IoptronImpl *) this;
+    impl->setSlewingRate(rate);
+}
+
+void Ioptron::move(
+    int direction,
+    float duration
+) noexcept {
+    auto impl = (IoptronImpl *) this;
+    impl->move(direction, duration);
 }
 
 void Ioptron::disconnect() noexcept {
