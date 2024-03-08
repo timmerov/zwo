@@ -26,5 +26,9 @@ public:
 
     void showStatus() noexcept;
 
+    void slewToHomePosition() noexcept;
+
+    void setZeroPosition() noexcept;
+
     void disconnect() noexcept;
 };

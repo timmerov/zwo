@@ -4,6 +4,8 @@ Copyright (C) 2012-2024 tim cotter. All rights reserved.
 
 /**
 drive the ioptron smarteq pro(+) mount.
+using ioptron's ascom rs-232 command language v2.5 from here:
+https://www.ioptron.com/v/ASCOM/RS-232_Command_Language2014_V2.5.pdf
 
 must issue the :MountInfo# commands.
 the :V# and  command is marked as deprecated.
@@ -508,6 +510,30 @@ public:
         LOG("IOptron Status Azimuth: "<<s);
     }
 
+    void slewToHomePosition() noexcept {
+        if (is_connected_ == false) {
+            LOG("Ioptron mount is not connected.");
+            return;
+        }
+
+        LOG("slewing to home (zero) position...");
+        port_.write(":MH#");
+        auto response = port_.read(1);
+        LOG("result: "<<response);
+    }
+
+    void setZeroPosition() noexcept {
+        if (is_connected_ == false) {
+            LOG("Ioptron mount is not connected.");
+            return;
+        }
+
+        LOG("setting zero (home) position...");
+        port_.write(":SZP#");
+        auto response = port_.read(1);
+        LOG("result: "<<response);
+    }
+
     void disconnect() noexcept {
         port_.close();
     }
@@ -539,6 +565,16 @@ bool Ioptron::isConnected() noexcept {
 void Ioptron::showStatus() noexcept {
     auto impl = (IoptronImpl *) this;
     impl->showStatus();
+}
+
+void Ioptron::slewToHomePosition() noexcept {
+    auto impl = (IoptronImpl *) this;
+    impl->slewToHomePosition();
+}
+
+void Ioptron::setZeroPosition() noexcept {
+    auto impl = (IoptronImpl *) this;
+    impl->setZeroPosition();
 }
 
 void Ioptron::disconnect() noexcept {

@@ -131,20 +131,22 @@ public:
     }
 
     void showMenu() noexcept {
-        LOG("Menu:");
-        LOG("  A,a [+-01yn] : stack (accumulate) images: "<<settings_->accumulate_);
-        LOG("  B,b [+-01yn] : toggle capture black: "<<settings_->capture_black_);
-        LOG("  C,c red blue : set color balance: r="<<settings_->balance_red_<<" b="<<settings_->balance_blue_);
-        LOG("  E,e [+-01yn] : toggle auto exposure: "<<settings_->auto_exposure_);
-        LOG("  E,e usecs    : set exposure microseconds: "<<settings_->exposure_<<" (disables auto exposure)");
-        LOG("  F,f [+-01yn] : toggle manual focus helper: "<<settings_->show_focus_);
-        LOG("  H,h [+-01yn] : toggle histogram: "<<settings_->show_histogram_);
-        LOG("  Mi,mi        : show mount info");
-        LOG("  Q,q,esc      : quit");
-        LOG("  R,r [+-01yn] : toggle fps (frame Rate): "<<settings_->show_fps_);
-        LOG("  S,s file     : save the image (disables stacking).");
-        LOG("  X,x          : run the experiment of the day");
-        LOG("  ?            : show help");
+        LOG("Menu (not case sensitive unless specified):");
+        LOG("  a [+-01yn] : stack (accumulate) images: "<<settings_->accumulate_);
+        LOG("  b [+-01yn] : toggle capture black: "<<settings_->capture_black_);
+        LOG("  c red blue : set color balance: r="<<settings_->balance_red_<<" b="<<settings_->balance_blue_);
+        LOG("  e [+-01yn] : toggle auto exposure: "<<settings_->auto_exposure_);
+        LOG("  e usecs    : set exposure microseconds: "<<settings_->exposure_<<" (disables auto exposure)");
+        LOG("  f [+-01yn] : toggle manual focus helper: "<<settings_->show_focus_);
+        LOG("  h [+-01yn] : toggle histogram: "<<settings_->show_histogram_);
+        LOG("  mi         : show mount info");
+        LOG("  mh         : slew to home (zero) position");
+        LOG("  mz         : slew to zero (home) position");
+        LOG("  q,esc      : quit");
+        LOG("  r [+-01yn] : toggle fps (frame Rate): "<<settings_->show_fps_);
+        LOG("  s file     : save the image (disables stacking).");
+        LOG("  x          : run the experiment of the day");
+        LOG("  ?          : show help");
     }
 
     void toggleAccumulate() noexcept {
@@ -214,9 +216,17 @@ public:
 
     void handleMount() noexcept {
         switch (input_[1]) {
+        case 'h':
+        case 'H':
+            mount_->slewToHomePosition();
+            break;
         case 'i':
         case 'I':
             mount_->showStatus();
+            break;
+        case 'z':
+        case 'Z':
+            mount_->setZeroPosition();
             break;
         default:
             LOG("Unknown command for mount.");
