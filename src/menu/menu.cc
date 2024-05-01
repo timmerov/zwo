@@ -89,6 +89,10 @@ public:
             toggleHistogram();
             break;
 
+        case 'i':
+            toggleIso();
+            break;
+
         case 'm':
             handleMount();
             break;
@@ -126,9 +130,11 @@ public:
         LOG("  b [+-01yn]   : toggle capture black: "<<settings_->capture_black_);
         LOG("  c red blue   : set color balance: r="<<settings_->balance_red_<<" b="<<settings_->balance_blue_);
         LOG("  e [+-01yn]   : toggle auto exposure: "<<settings_->auto_exposure_);
-        LOG("  e usecs      : set exposure microseconds: "<<settings_->exposure_<<" (disables auto exposure)");
+        LOG("  e usecs      : set exposure microseconds (disables auto): "<<settings_->exposure_);
         LOG("  f [+-01yn]   : toggle manual focus helper: "<<settings_->show_focus_);
         LOG("  h [+-01yn]   : toggle histogram: "<<settings_->show_histogram_);
+        LOG("  i [+-01yn]   : toggle auto iso linear scaling: "<<settings_->auto_iso_);
+        LOG("  i iso        : set iso linear scaling [100 none] (disables auto): "<<settings_->iso_);
         LOG("  mi           : show mount info");
         LOG("  mh           : slew to home (zero) position");
         LOG("  mm [nsew] ms : slew n,s,e,w for milliseconds");
@@ -197,6 +203,21 @@ public:
         LOG("MenuThread histogram: "<<new_histogram);
         std::lock_guard<std::mutex> lock(settings_->mutex_);
         settings_->show_histogram_ = new_histogram;
+    }
+
+    void toggleIso() noexcept {
+        bool new_auto_iso = false;
+        int new_iso = getInt(-1);
+        if (new_iso <= 0) {
+            new_iso = settings_->iso_;
+            new_auto_iso = getToggleOnOff(settings_->auto_iso_);
+        }
+
+        LOG("MenuThread auto iso: "<<new_auto_iso);
+        LOG("MenuThread iso: "<<new_iso);
+        std::lock_guard<std::mutex> lock(settings_->mutex_);
+        settings_->auto_iso_ = new_auto_iso;
+        settings_->iso_ = new_iso;
     }
 
     void toggleFps() noexcept {

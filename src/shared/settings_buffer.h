@@ -30,9 +30,11 @@ public:
     bool capture_black_ = false;
     double balance_red_ = 1.0;
     double balance_blue_ = 1.0;
-    bool auto_exposure_ = false; //true;
+    bool auto_exposure_ = false;
     int exposure_ = 100; /*microseconds*/
     bool show_focus_ = false;
+    bool auto_iso_ = false;
+    int iso_ = 100; /*no scaling*/
     bool show_histogram_ = false;
     bool show_fps_ = false;
     std::string save_file_name_;

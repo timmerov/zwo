@@ -32,6 +32,8 @@ public:
     double balance_red_ = 1.0;
     double balance_blue_ = 1.0;
     bool show_focus_ = false;
+    bool auto_iso_ = false;
+    int iso_ = 100;
     bool show_histogram_ = false;
     bool show_fps_ = false;
     std::string save_file_name_;
@@ -144,6 +146,9 @@ public:
         /** stack images. **/
         stackImages();
 
+        /** iso linear scale. **/
+        isoLinearScale();
+
         /** adjust BGR colors. **/
         convertStdRgb();
 
@@ -187,6 +192,8 @@ public:
         balance_blue_ = settings_buffer_->balance_blue_;
         show_focus_ = settings_buffer_->show_focus_;
         show_histogram_ = settings_buffer_->show_histogram_;
+        auto_iso_ = settings_buffer_->auto_iso_;
+        iso_ = settings_buffer_->iso_;
         show_fps_ = settings_buffer_->show_fps_;
         save_file_name_ = std::move(settings_buffer_->save_file_name_);
     }
@@ -366,6 +373,49 @@ public:
             if (ns == 1 || ns == 3) {
                 LOG("WindowThread Stacked "<<nstacked_<<" frames.");
             }
+        }
+    }
+
+    void isoLinearScale() noexcept {
+        int sz = 3 * img_->width_ * img_->height_;
+        auto ptr = (agm::uint16 *) rgb16_.data;
+        int iso = iso_;
+
+        /** auto scale to maximum value. **/
+        if (auto_iso_) {
+            int mx = 0;
+            for (int i = 0; i < sz; ++i) {
+                int p = *ptr++;
+                mx = std::max(mx, p);
+            }
+            if (mx == 0) {
+                return;
+            }
+            iso = 65535 * 100 / mx;
+        }
+
+        /** sanity checks **/
+        if (iso == 100) {
+            return;
+        }
+        if (iso <= 0) {
+            return;
+        }
+
+        /** iso scaling. **/
+        ptr = (agm::uint16 *) rgb16_.data;
+        for (int i = 0; i < sz; ++i) {
+            int p = *ptr * iso / 100;
+            p = std::min(p, 65535);
+            *ptr++ = p;
+        }
+
+        /** update settings. **/
+        if (auto_iso_ && iso != iso_) {
+            iso_ = iso;
+            LOG("new auto iso="<<iso);
+            std::lock_guard<std::mutex> lock(settings_buffer_->mutex_);
+            settings_buffer_->iso_ = iso;
         }
     }
 
