@@ -3,6 +3,7 @@ build-unix64-release/
 build-win64/
 bin/
 data/
+pictures/
 *.log
 *.obj
 *.png
