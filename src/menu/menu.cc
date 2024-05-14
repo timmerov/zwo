@@ -85,6 +85,10 @@ public:
             toggleFocus();
             break;
 
+        case 'g':
+            toggleGamma();
+            break;
+
         case 'h':
             toggleHistogram();
             break;
@@ -132,6 +136,7 @@ public:
         LOG("  e [+-01yn]   : toggle auto exposure: "<<settings_->auto_exposure_);
         LOG("  e usecs      : set exposure microseconds (disables auto): "<<settings_->exposure_);
         LOG("  f [+-01yn]   : toggle manual focus helper: "<<settings_->show_focus_);
+        LOG("  g pwr        : set gamma (1.0): "<<settings_->gamma_);
         LOG("  h [+-01yn]   : toggle histogram: "<<settings_->show_histogram_);
         LOG("  i [+-01yn]   : toggle auto iso linear scaling: "<<settings_->auto_iso_);
         LOG("  i iso        : set iso linear scaling [100 none] (disables auto): "<<settings_->iso_);
@@ -196,6 +201,17 @@ public:
         LOG("MenuThread focus: "<<new_focus);
         std::lock_guard<std::mutex> lock(settings_->mutex_);
         settings_->show_focus_ = new_focus;
+    }
+
+    void toggleGamma() noexcept {
+        double new_gamma = getDouble(1.0);
+        if (new_gamma <= 0.0) {
+            new_gamma = 1.0;
+        }
+
+        LOG("MenuThread gamma: "<<new_gamma);
+        std::lock_guard<std::mutex> lock(settings_->mutex_);
+        settings_->gamma_ = new_gamma;
     }
 
     void toggleHistogram() noexcept {
@@ -268,6 +284,18 @@ public:
         ss << input_;
         char ch;
         int value = default_value;
+        ss >> ch >> value;
+        return value;
+    }
+
+    /** parse the input as a number. **/
+    double getDouble(
+        double default_value
+    ) noexcept {
+        std::stringstream ss;
+        ss << input_;
+        char ch;
+        double value = default_value;
         ss >> ch >> value;
         return value;
     }

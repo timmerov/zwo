@@ -33,6 +33,7 @@ public:
     bool auto_exposure_ = false;
     int exposure_ = 100; /*microseconds*/
     bool show_focus_ = false;
+    double gamma_ = 1.0;
     bool auto_iso_ = false;
     int iso_ = 100; /*no scaling*/
     bool show_histogram_ = false;

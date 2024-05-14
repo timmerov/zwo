@@ -32,6 +32,7 @@ public:
     double balance_red_ = 1.0;
     double balance_blue_ = 1.0;
     bool show_focus_ = false;
+    double gamma_ = 1.0;
     bool auto_iso_ = false;
     int iso_ = 100;
     bool show_histogram_ = false;
@@ -49,7 +50,7 @@ public:
     cv::Mat rgb8_gamma_;
     double base_stddev_ = 0.0;
     int gamma_max_ = 0;
-    agm::uint8 *gamma_ = nullptr;
+    agm::uint8 *gamma_table_ = nullptr;
     int *histr_ = nullptr;
     int *histg_ = nullptr;
     int *histb_ = nullptr;
@@ -149,6 +150,9 @@ public:
         /** iso linear scale. **/
         isoLinearScale();
 
+        /** gamma power scale. **/
+        gammaPowerScale();
+
         /** adjust BGR colors. **/
         convertStdRgb();
 
@@ -158,8 +162,8 @@ public:
         /** show histogram. **/
         showHistogram();
 
-        /** apply gamma. **/
-        applyGamma();
+        /** apply display gamma. **/
+        applyDisplayGamma();
 
         /** show it. **/
         cv::imshow(win_name_, rgb8_gamma_);
@@ -191,6 +195,7 @@ public:
         balance_red_ = settings_buffer_->balance_red_;
         balance_blue_ = settings_buffer_->balance_blue_;
         show_focus_ = settings_buffer_->show_focus_;
+        gamma_ = settings_buffer_->gamma_;
         show_histogram_ = settings_buffer_->show_histogram_;
         auto_iso_ = settings_buffer_->auto_iso_;
         iso_ = settings_buffer_->iso_;
@@ -391,7 +396,13 @@ public:
             if (mx == 0) {
                 return;
             }
-            iso = 65535 * 100 / mx;
+
+            /** update iso only if it's out of whack. **/
+            int test = mx * iso / 100;
+            if (test < 65535*9/10 || test > 65535) {
+                int new_iso = 65535 * 100 / mx;
+                iso = (9*iso + new_iso) / 10;
+            }
         }
 
         /** sanity checks **/
@@ -416,6 +427,29 @@ public:
             LOG("new auto iso="<<iso);
             std::lock_guard<std::mutex> lock(settings_buffer_->mutex_);
             settings_buffer_->iso_ = iso;
+        }
+    }
+
+    void gammaPowerScale() noexcept {
+        double gamma = gamma_;
+        if (gamma == 1.0) {
+            return;
+        }
+        if (gamma <= 0) {
+            return;
+        }
+
+        int sz = 3 * img_->width_ * img_->height_;
+        auto ptr = (agm::uint16 *) rgb16_.data;
+
+        for (int i = 0; i < sz; ++i) {
+            int p = *ptr;
+            double x = double(p) / 65535.0;
+            x = std::pow(x, gamma);
+            x *= 65535.0;
+            p = (int) std::round(x);
+            p = std::max(0, std::min(p, 65535));
+            *ptr++ = p;
         }
     }
 
@@ -607,7 +641,7 @@ public:
         static const int kGammaTableSize = 1124;
         static const double kGammaTableMax = kGammaTableSize - 1;
         gamma_max_ = kGammaTableSize - 1;
-        gamma_ = new(std::nothrow) agm::uint8[kGammaTableSize];
+        gamma_table_ = new(std::nothrow) agm::uint8[kGammaTableSize];
 
         /** build the table. **/
         for (int i = 0; i < kGammaTableSize; ++i) {
@@ -625,7 +659,7 @@ public:
             int ix = std::round(x);
             ix = std::max(0, std::min(ix, 255));
             /** save table value. **/
-            gamma_[i] = ix;
+            gamma_table_[i] = ix;
         }
     }
 
@@ -633,7 +667,7 @@ public:
     scale the source 16 bit components to the size of the gamma lookup table.
     set the destination 8 bit values.
     **/
-    void applyGamma() noexcept {
+    void applyDisplayGamma() noexcept {
         /** for each component of every pixel. **/
         static const int kChannelsPerPixel = 3;
         int wd = img_->width_;
@@ -653,7 +687,7 @@ public:
             ix = std::max(0, std::min(ix, gamma_max_));
 
             /** use the value from the table. **/
-            *dst++ = gamma_[ix];
+            *dst++ = gamma_table_[ix];
         }
     }
 
