@@ -55,5 +55,6 @@ set(LIBS
     ${TIFF_LIBRARIES}
     ${ZWO_ASI_DIR}/lib/x64/libASICamera2.so
     ${AGM_DIR}/lib/libagm.a
+    X11
 )
 target_link_libraries(${THIS_TARGET_NAME} ${LIBS})

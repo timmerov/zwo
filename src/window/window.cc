@@ -9,6 +9,7 @@ display images in a window.
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc.hpp>
 #include <tiffio.h>
+#include <X11/Xlib.h>
 
 #include <aggiornamento/aggiornamento.h>
 #include <aggiornamento/log.h>
@@ -60,6 +61,9 @@ public:
     int nstacked_ = 0;
     agm::int64 fps_start_ = 0;
     int fps_count_ = 0;
+    int display_width_ = 0;
+    int display_height_ = 0;
+    cv::Rect aoi_;
 
     WindowThread(
         ImageDoubleBuffer *image_double_buffer,
@@ -85,6 +89,9 @@ public:
 
         /** initialize the gamma table. **/
         initGammaTable();
+
+        /** limit window size to display size. **/
+        getDisplayResolution();
     }
 
     /** run until we're told to stop. **/
@@ -105,6 +112,9 @@ public:
 
             /** finish initialization now that we know the capture size. **/
             rgb8_gamma_ = cv::Mat(ht, wd, CV_8UC3);
+
+            /** set the area of interest. **/
+            setWindowCrop();
         }
 
         /** display fps every 3 seconds. **/
@@ -165,8 +175,11 @@ public:
         /** apply display gamma. **/
         applyDisplayGamma();
 
+        /** crop it. **/
+        cv::Mat cropped = rgb8_gamma_(aoi_);
+
         /** show it. **/
-        cv::imshow(win_name_, rgb8_gamma_);
+        cv::imshow(win_name_, cropped);
 
         /** save the file. **/
         saveImage();
@@ -688,6 +701,40 @@ public:
 
             /** use the value from the table. **/
             *dst++ = gamma_table_[ix];
+        }
+    }
+
+    /** get the size of the default display. **/
+    void getDisplayResolution() noexcept {
+        /** this should be part of agm. **/
+        auto display = XOpenDisplay(nullptr);
+        auto screen = DefaultScreenOfDisplay(display);
+        display_width_  = screen->width;
+        display_height_ = screen->height;
+        LOG("Display Resolution: "<<display_width_<<" x "<<display_height_);
+    }
+
+    /** crop the captured image if necessary. **/
+    void setWindowCrop() noexcept {
+        int max_usable_width = display_width_ * 80 / 100;
+        int max_usable_height = display_height_ * 80 / 100;
+        int image_width = img_->width_;
+        int image_height = img_->height_;
+
+        aoi_.x = 0;
+        aoi_.y = 0;
+        aoi_.width = image_height;
+        aoi_.height = image_width;
+
+        if (image_width > max_usable_width) {
+            int margin = (image_width - max_usable_width) / 2;
+            aoi_.x = margin;
+            aoi_.width = max_usable_width;
+        }
+        if (image_height > max_usable_height) {
+            int margin = (image_height - max_usable_height) / 2;
+            aoi_.y = margin;
+            aoi_.height = max_usable_height;
         }
     }
 
