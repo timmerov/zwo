@@ -39,6 +39,7 @@ public:
     bool show_histogram_ = false;
     bool show_fps_ = false;
     std::string save_file_name_;
+    std::string raw_file_name_;
 };
 
 class SettingsBuffer : public Settings {

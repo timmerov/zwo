@@ -1,8 +1,7 @@
 
-- save raw 16 bit tiff files before any manipulation. r command maybe?
 - save a sequence of images.
 - handle bad pixels.
-
+- find app that can open 32 bit tiff files.
 
 -- identify stars
 -- check alignment.

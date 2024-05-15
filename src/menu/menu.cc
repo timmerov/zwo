@@ -114,6 +114,10 @@ public:
             saveImage();
             break;
 
+        case 't':
+            saveRaw();
+            break;
+
         case 'x':
             experiment();
             break;
@@ -148,6 +152,7 @@ public:
         LOG("  q,esc        : quit");
         LOG("  r [+-01yn]   : toggle fps (frame Rate): "<<settings_->show_fps_);
         LOG("  s file       : save the image (disables stacking).");
+        LOG("  t file       : save the raw 16 bit image as tiff.");
         LOG("  x            : run the experiment of the day");
         LOG("  ?            : show help");
     }
@@ -350,8 +355,27 @@ public:
         }
 
         LOG("MenuThread save file: "<<filename);
-        std::lock_guard<std::mutex> lock(settings_->mutex_);
-        settings_->save_file_name_ = filename;
+        {
+            std::lock_guard<std::mutex> lock(settings_->mutex_);
+            std::swap(settings_->save_file_name_, filename);
+        }
+    }
+
+    void saveRaw() noexcept {
+        std::stringstream ss;
+        ss << input_;
+        char ch;
+        std::string filename;
+        ss >> ch >> filename;
+        if (filename.size() == 0) {
+            return;
+        }
+
+        LOG("MenuThread save raw: "<<filename);
+        {
+            std::lock_guard<std::mutex> lock(settings_->mutex_);
+            std::swap(settings_->raw_file_name_, filename);
+        }
     }
 
     /** run the experiment of the day. **/
