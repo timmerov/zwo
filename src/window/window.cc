@@ -943,7 +943,7 @@ public:
         int src,
         int scale
     ) noexcept {
-        static const int kInt32Max = 0x7FFFFFF;
+        static const int kInt32Max = 0x7FFFFFFF;
         agm::int64 x = src;
         x *= kInt32Max;
         x /= scale;
