@@ -21,6 +21,13 @@ display images in a window.
 
 
 namespace {
+
+class BadPixels {
+public:
+    cv::Mat comp_;
+    cv::Mat laplace_;
+};
+
 class WindowThread : public agm::Thread {
 public:
     /** share data with the capture thread. **/
@@ -44,6 +51,7 @@ public:
     /** our fields. **/
     cv::String win_name_ = "ZWO ASI";
     bool first_image_ = false;
+    BadPixels bad_;
     cv::Mat rgb16_;
     cv::Mat rgb32_;
     cv::Mat cropped_;
@@ -140,6 +148,9 @@ public:
         /** copy all of the settings at once. **/
         copySettings();
 
+        /** fix bad pixels. **/
+        fixBadPixels();
+
         /**
         convert the bayer image to rgb.
         despite the name RGB the format in memory is BGR.
@@ -216,6 +227,64 @@ public:
         show_fps_ = settings_buffer_->show_fps_;
         save_file_name_ = std::move(settings_buffer_->save_file_name_);
         raw_file_name_ = std::move(settings_buffer_->raw_file_name_);
+    }
+
+    void fixBadPixels() noexcept {
+        /**
+        bayer format is:
+            RG
+            GB
+        fix each component separately.
+        **/
+        fixBadPixels(0, 0);
+        fixBadPixels(0, 1);
+        fixBadPixels(1, 0);
+        fixBadPixels(1, 1);
+    }
+
+    void fixBadPixels(
+        int dx,
+        int dy
+    ) noexcept {
+        /** allocate an image for the component. **/
+        int wd = img_->width_;
+        int ht = img_->height_;
+        int wdc = wd / 2;
+        int htc = ht / 2;
+        if (bad_.comp_.rows == 0) {
+            bad_.comp_ = cv::Mat(htc, wdc, CV_16UC1);
+        }
+
+        auto src = (agm::uint16 *) img_->bayer_.data;
+        auto dst = (agm::uint16 *) bad_.comp_.data;
+
+        /** offset to this color plane. **/
+        src += dx;
+        src += dy * wd;
+
+        /** copy pixels **/
+        for (int y = 0; y < htc; ++y) {
+            auto src_row = src;
+            src += wd;
+            for (int x = 0; x < wdc; ++x) {
+                *dst++ = *src_row;
+                src_row += 2;
+            }
+        }
+
+        /** apply laplacian convolution to find bad pixels. **/
+        cv::Laplacian(bad_.comp_, bad_.laplace_, CV_64F, 3, 1, 0);
+
+        float mx = 0.0;
+        float mn = 1e6;
+        int sz = wdc * htc;
+        auto ptr = (float *) bad_.laplace_.data;
+        for (int i = 0; i < sz; ++i) {
+            float p = *ptr++;
+            mx = std::max(mx, p);
+            mn = std::min(mn, p);
+        }
+        LOG("max="<<mx<<" min="<<mn);
     }
 
     void checkBlurriness() noexcept {
