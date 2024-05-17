@@ -32,6 +32,7 @@ public:
     bool capture_black_ = false;
     double balance_red_ = 1.0;
     double balance_blue_ = 1.0;
+    int exposure_ = 100;
     bool show_focus_ = false;
     double gamma_ = 1.0;
     bool auto_iso_ = false;
@@ -45,6 +46,7 @@ public:
     cv::String win_name_ = "ZWO ASI";
     bool first_image_ = false;
     cv::Mat rgb16_;
+    cv::Mat black_;
     cv::Mat rgb32_;
     cv::Mat cropped_;
     cv::Mat gray_;
@@ -56,9 +58,6 @@ public:
     int *histr_ = nullptr;
     int *histg_ = nullptr;
     int *histb_ = nullptr;
-    agm::uint16 blackr_ = 0;
-    agm::uint16 blackg_ = 0;
-    agm::uint16 blackb_ = 0;
     int nstacked_ = 0;
     agm::int64 fps_start_ = 0;
     int fps_count_ = 0;
@@ -140,6 +139,12 @@ public:
         /** copy all of the settings at once. **/
         copySettings();
 
+        /** capture black. **/
+        captureBlack();
+
+        /** subtract black. **/
+        subtractBlack();
+
         /**
         convert the bayer image to rgb.
         despite the name RGB the format in memory is BGR.
@@ -148,12 +153,6 @@ public:
 
         /** check blurriness. **/
         checkBlurriness();
-
-        /** capture black. **/
-        captureBlack();
-
-        /** subtract black. **/
-        subtractBlack();
 
         /** stack images. **/
         stackImages();
@@ -208,6 +207,7 @@ public:
         capture_black_ = settings_buffer_->capture_black_;
         balance_red_ = settings_buffer_->balance_red_;
         balance_blue_ = settings_buffer_->balance_blue_;
+        exposure_ = settings_buffer_->exposure_;
         show_focus_ = settings_buffer_->show_focus_;
         gamma_ = settings_buffer_->gamma_;
         show_histogram_ = settings_buffer_->show_histogram_;
@@ -254,38 +254,92 @@ public:
             return;
         }
 
-        auto mean = cv::mean(rgb16_);
-        int r = blackr_ * 95 / 100;
-        int g = blackg_ * 95 / 100;
-        int b = blackb_ * 95 / 100;
-        blackr_ = (r + mean[2]) / 2;
-        blackg_ = (g + mean[1]) / 2;
-        blackb_ = (b + mean[0]) / 2;
-        LOG("new black: r="<<blackr_<<" g="<<blackg_<<" b="<<blackb_);
+        /** the first black image. **/
+        int wd = img_->width_;
+        int ht = img_->height_;
+        if (black_.rows == 0) {
+            black_ = cv::Mat(ht, wd, CV_16UC1);
+            black_ = 0;
+        }
+
+        /**
+        we're looking for pixels that leak too much current.
+        in other words, they're too bright.
+        some are way too bright.
+        they get brighter linearly with exposure time.
+        save the brightest values.
+        scale to an exposure time of 1 second = 10000000 us.
+        leakage apparently varies with temperature.
+        which is unfortunate.
+        and is why we save the maximum value.
+        **/
+        int mx = 0;
+        int sz = wd * ht;
+        auto pimg = (agm::uint16 *) img_->bayer_.data;
+        auto pblk = (agm::uint16 *) black_.data;
+        for (int i = 0; i < sz; ++i) {
+            /** 16 bits **/
+            int pix = *pimg;
+            agm::int64 x = *pblk;
+            /** +20 bits = 36 bits > 32 bits. **/
+            x = x * 1000000 / exposure_;
+            int blk = std::min(x, 65535L);
+            blk = std::max(blk, pix);
+            mx = std::max(mx, blk);
+            *pblk++ = blk;
+
+            /** show black while we're capturing it. **/
+            *pimg++ = blk;
+        }
+        LOG("max black leakage per second: "<<mx);
     }
 
     /**
     subtract black from the image.
-    pin to 0.
     **/
     void subtractBlack() noexcept {
-        int sz = img_->width_ * img_->height_;
-        auto ptr = (agm::uint16 *) rgb16_.data;
-        for (int i = 0; i < sz; ++i) {
-            int r = ptr[2];
-            int g = ptr[1];
-            int b = ptr[0];
-            r -= blackr_;
-            g -= blackg_;
-            b -= blackb_;
-            r = std::max(0, r);
-            g = std::max(0, g);
-            b = std::max(0, b);
-            ptr[2] = r;
-            ptr[1] = g;
-            ptr[0] = b;
-            ptr += 3;
+        /** no black to subtract. **/
+        if (black_.rows == 0) {
+            return;
         }
+        /** don't subtract black if we're capturing black. **/
+        if (capture_black_) {
+            return;
+        }
+
+        /**
+        scale black to exposure time.
+        subtract from captured image.
+        **/
+        int mx = 0;
+        int sz = img_->width_ * img_->height_;
+        auto pimg = (agm::uint16 *) img_->bayer_.data;
+        auto pblk = (agm::uint16 *) black_.data;
+        for (int i = 0; i < sz; ++i) {
+            /** 16 bits **/
+            int pix = *pimg;
+            agm::int64 x = *pblk++;
+            /** +28 bits = 44 bits > 32 bits **/
+            x = x * exposure_ / 1000000;
+            int blk = std::min(x, 65535L);
+            pix -= blk;
+            pix = std::max(0, pix);
+            mx = std::max(mx, pix);
+
+            /**
+            there's a bit of an issue here.
+            some pixels are very leaky.
+            and quite variable in their leakiness.
+            so for these suspect pixels with high black values...
+            we don't know what the correct black value is now.
+            so we should handle suspect pixels by comparing the
+            correct value to the values of its neighbors.
+            if it's out of whack, then we should use the average
+            value of its neighbors instead of the corrected value.
+            **/
+            *pimg++ = pix;
+        }
+        LOG("max captured component: "<<mx);
     }
 
     /** no alignment **/
