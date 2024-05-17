@@ -140,9 +140,6 @@ public:
         /** copy all of the settings at once. **/
         copySettings();
 
-        /** fix bad pixels. **/
-        fixBadPixels();
-
         /**
         convert the bayer image to rgb.
         despite the name RGB the format in memory is BGR.
@@ -219,81 +216,6 @@ public:
         show_fps_ = settings_buffer_->show_fps_;
         save_file_name_ = std::move(settings_buffer_->save_file_name_);
         raw_file_name_ = std::move(settings_buffer_->raw_file_name_);
-    }
-
-    void fixBadPixels() noexcept {
-        /**
-        some of the pixels really don't like long exposures.
-        i guess they leak current or something.
-        so the idea is to load a list of bad pixels from a file.
-        and interpolate real values.
-
-        the program can generate this list.
-        put the lens cap on the camera.
-        set exposure to 4 seconds.
-        capture an image.
-        set a threshold to about 1000 or so.
-        any bayer pixel greater than that threshold is bad.
-        write the list of bad pixels to a file.
-        **/
-
-        const int kThreshold = 500;
-
-        int wd = img_->width_;
-        int ht = img_->height_;
-        int sz = wd * ht;
-        auto ptr = (agm::uint16 *) img_->bayer_.data;
-        int count = 0;
-        for (int i = 0; i < sz; ++i) {
-            int p = *ptr;
-            if (p > kThreshold) {
-                LOG("bad pixel value: "<<p<<" at: "<<i);
-                ++count;
-                *ptr = kThreshold / 5;
-            }
-            ++ptr;
-        }
-        if (count > 0) {
-            LOG("bad pixel count: "<<count);
-        }
-
-        #if 0
-        static const int kHistogramSize = 256;
-        static const int kHistogramScale = 65536 / kHistogramSize;
-        auto histogram = new(std::nothrow) int[1024];
-
-        for (int i = 0; i < kHistogramSize; ++i) {
-            histogram[i] = 0;
-        }
-
-        int wd = img_->width_;
-        int ht = img_->height_;
-        int sz = wd * ht;
-        auto ptr = (agm::uint16 *) img_->bayer_.data;
-        for (int i = 0; i < sz; ++i) {
-            int p = *ptr++;
-            p /= kHistogramScale;
-            p = std::max(0, std::min(p, kHistogramSize-1));
-            ++histogram[p];
-        }
-
-        int count = 0;
-        for (int i = kHistogramSize-1; i >= 0; --i) {
-            count += histogram[i];
-            histogram[i] = count;
-        }
-
-        int lasth = 0;
-        for (int i = 0; i < kHistogramSize; ++i) {
-            int h = histogram[i];
-            if (lasth != h) {
-                lasth = h;
-                LOG("histogram["<<i<<"] = "<<h);
-            }
-        }
-
-        delete[] histogram;
-        #endif
     }
 
     void checkBlurriness() noexcept {
