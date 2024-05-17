@@ -137,8 +137,8 @@ public:
             return;
         }
 
-        /** start with an exposure of 1 millisecond. **/
-        exposure_ = 100;// 1 * 1000;
+        /** start with an exposure of 20 milliseconds. **/
+        exposure_ = 20 * 1000;
     }
 
     virtual void runOnce() noexcept {
