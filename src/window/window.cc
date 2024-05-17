@@ -21,13 +21,6 @@ display images in a window.
 
 
 namespace {
-
-class BadPixels {
-public:
-    cv::Mat comp_;
-    cv::Mat laplace_;
-};
-
 class WindowThread : public agm::Thread {
 public:
     /** share data with the capture thread. **/
@@ -51,7 +44,6 @@ public:
     /** our fields. **/
     cv::String win_name_ = "ZWO ASI";
     bool first_image_ = false;
-    BadPixels bad_;
     cv::Mat rgb16_;
     cv::Mat rgb32_;
     cv::Mat cropped_;
@@ -231,60 +223,77 @@ public:
 
     void fixBadPixels() noexcept {
         /**
-        bayer format is:
-            RG
-            GB
-        fix each component separately.
-        **/
-        fixBadPixels(0, 0);
-        fixBadPixels(0, 1);
-        fixBadPixels(1, 0);
-        fixBadPixels(1, 1);
-    }
+        some of the pixels really don't like long exposures.
+        i guess they leak current or something.
+        so the idea is to load a list of bad pixels from a file.
+        and interpolate real values.
 
-    void fixBadPixels(
-        int dx,
-        int dy
-    ) noexcept {
-        /** allocate an image for the component. **/
+        the program can generate this list.
+        put the lens cap on the camera.
+        set exposure to 4 seconds.
+        capture an image.
+        set a threshold to about 1000 or so.
+        any bayer pixel greater than that threshold is bad.
+        write the list of bad pixels to a file.
+        **/
+
+        const int kThreshold = 500;
+
         int wd = img_->width_;
         int ht = img_->height_;
-        int wdc = wd / 2;
-        int htc = ht / 2;
-        if (bad_.comp_.rows == 0) {
-            bad_.comp_ = cv::Mat(htc, wdc, CV_16UC1);
+        int sz = wd * ht;
+        auto ptr = (agm::uint16 *) img_->bayer_.data;
+        int count = 0;
+        for (int i = 0; i < sz; ++i) {
+            int p = *ptr;
+            if (p > kThreshold) {
+                LOG("bad pixel value: "<<p<<" at: "<<i);
+                ++count;
+                *ptr = kThreshold / 5;
+            }
+            ++ptr;
+        }
+        if (count > 0) {
+            LOG("bad pixel count: "<<count);
         }
 
-        auto src = (agm::uint16 *) img_->bayer_.data;
-        auto dst = (agm::uint16 *) bad_.comp_.data;
+        #if 0
+        static const int kHistogramSize = 256;
+        static const int kHistogramScale = 65536 / kHistogramSize;
+        auto histogram = new(std::nothrow) int[1024];
 
-        /** offset to this color plane. **/
-        src += dx;
-        src += dy * wd;
+        for (int i = 0; i < kHistogramSize; ++i) {
+            histogram[i] = 0;
+        }
 
-        /** copy pixels **/
-        for (int y = 0; y < htc; ++y) {
-            auto src_row = src;
-            src += wd;
-            for (int x = 0; x < wdc; ++x) {
-                *dst++ = *src_row;
-                src_row += 2;
+        int wd = img_->width_;
+        int ht = img_->height_;
+        int sz = wd * ht;
+        auto ptr = (agm::uint16 *) img_->bayer_.data;
+        for (int i = 0; i < sz; ++i) {
+            int p = *ptr++;
+            p /= kHistogramScale;
+            p = std::max(0, std::min(p, kHistogramSize-1));
+            ++histogram[p];
+        }
+
+        int count = 0;
+        for (int i = kHistogramSize-1; i >= 0; --i) {
+            count += histogram[i];
+            histogram[i] = count;
+        }
+
+        int lasth = 0;
+        for (int i = 0; i < kHistogramSize; ++i) {
+            int h = histogram[i];
+            if (lasth != h) {
+                lasth = h;
+                LOG("histogram["<<i<<"] = "<<h);
             }
         }
 
-        /** apply laplacian convolution to find bad pixels. **/
-        cv::Laplacian(bad_.comp_, bad_.laplace_, CV_64F, 3, 1, 0);
-
-        float mx = 0.0;
-        float mn = 1e6;
-        int sz = wdc * htc;
-        auto ptr = (float *) bad_.laplace_.data;
-        for (int i = 0; i < sz; ++i) {
-            float p = *ptr++;
-            mx = std::max(mx, p);
-            mn = std::min(mn, p);
-        }
-        LOG("max="<<mx<<" min="<<mn);
+        delete[] histogram;
+        #endif
     }
 
     void checkBlurriness() noexcept {
