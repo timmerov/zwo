@@ -779,8 +779,8 @@ public:
 
         aoi_.x = 0;
         aoi_.y = 0;
-        aoi_.width = image_height;
-        aoi_.height = image_width;
+        aoi_.width = image_width;
+        aoi_.height = image_height;
 
         if (image_width > max_usable_width) {
             int margin = (image_width - max_usable_width) / 2;
