@@ -97,6 +97,10 @@ public:
             toggleIso();
             break;
 
+        case 'k':
+            toggleCircles();
+            break;
+
         case 'm':
             handleMount();
             break;
@@ -144,6 +148,7 @@ public:
         LOG("  h [+-01yn]   : toggle histogram: "<<settings_->show_histogram_);
         LOG("  i [+-01yn]   : toggle auto iso linear scaling: "<<settings_->auto_iso_);
         LOG("  i iso        : set iso linear scaling [100 none] (disables auto): "<<settings_->iso_);
+        LOG("  k [+-01yn]   : toggle collimation circles: "<<settings_->show_circles_);
         LOG("  mi           : show mount info");
         LOG("  mh           : slew to home (zero) position");
         LOG("  mm [nsew] ms : slew n,s,e,w for milliseconds");
@@ -239,6 +244,13 @@ public:
         std::lock_guard<std::mutex> lock(settings_->mutex_);
         settings_->auto_iso_ = new_auto_iso;
         settings_->iso_ = new_iso;
+    }
+
+    void toggleCircles() noexcept {
+        bool new_circles = getToggleOnOff(settings_->show_circles_);
+        LOG("MenuThread stack collimation circles: "<<new_circles);
+        std::lock_guard<std::mutex> lock(settings_->mutex_);
+        settings_->show_circles_ = new_circles;
     }
 
     void toggleFps() noexcept {

@@ -37,6 +37,7 @@ public:
     double gamma_ = 1.0;
     bool auto_iso_ = false;
     int iso_ = 100;
+    bool show_circles_ = false;
     bool show_histogram_ = false;
     bool show_fps_ = false;
     std::string save_file_name_;
@@ -172,6 +173,9 @@ public:
         /** show histogram. **/
         showHistogram();
 
+        /** show collimation circlex. **/
+        showCollimationCircles();
+
         /** apply display gamma. **/
         applyDisplayGamma();
 
@@ -213,6 +217,7 @@ public:
         show_histogram_ = settings_buffer_->show_histogram_;
         auto_iso_ = settings_buffer_->auto_iso_;
         iso_ = settings_buffer_->iso_;
+        show_circles_ = settings_buffer_->show_circles_;
         show_fps_ = settings_buffer_->show_fps_;
         save_file_name_ = std::move(settings_buffer_->save_file_name_);
         raw_file_name_ = std::move(settings_buffer_->raw_file_name_);
@@ -758,6 +763,92 @@ public:
             /** use the value from the table. **/
             *dst++ = gamma_table_[ix];
         }
+    }
+
+    /** draw concentric circles to aid collimation. **/
+    void showCollimationCircles() noexcept {
+        if (show_circles_ == false) {
+            return;
+        }
+        drawCircle(10);
+        drawCircle(30);
+        drawCircle(100);
+        drawCircle(300);
+        drawCircle(1000);
+    }
+
+    /** draw one circle around the center of the image. **/
+    void drawCircle(
+        int radius
+    ) noexcept {
+        int wd = img_->width_;
+        int ht = img_->height_;
+        int cx = wd / 2;
+        int cy = ht / 2;
+        if (radius >= cx || radius >= cy) {
+            return;
+        }
+        if (radius < 0) {
+            return;
+        }
+
+        int x = 0;
+        int y = radius;
+        int r42 = 4 * radius * radius;
+        while (x <= y) {
+            draw8Dots(cx, cy, x, y);
+            /**
+            the next point is x+1,y or x+1,y-1.
+            the midpoint of those is x+1,y-0.5.
+            if the midpoint is inside the circle then use y+1.
+            otherwise use y.
+            **/
+            ++x;
+            /**
+            mid radius^2 = x^2 + (y-0.5)^2
+            = x^2 + y^2 - y + 0.25
+            **/
+            int mr42 = 4*(x*x + y*y - y) + 1;
+            if (mr42 >= r42) {
+                --y;
+            }
+        }
+    }
+
+    /** draw 4 or 8 dots. **/
+    void draw8Dots(
+        int cx,
+        int cy,
+        int x,
+        int y
+    ) noexcept {
+        drawDot(cx + x, cy - y);
+        drawDot(cx + x, cy + y);
+        if (x != 0) {
+            drawDot(cx - x, cy - y);
+            drawDot(cx - x, cy + y);
+        }
+        if (x != y) {
+            drawDot(cx + y, cy + x);
+            drawDot(cx - y, cy + x);
+            if (x != 0) {
+                drawDot(cx + y, cy - x);
+                drawDot(cx - y, cy - x);
+            }
+        }
+    }
+
+    /** draw a red blended dot at the location. **/
+    void drawDot(
+        int x,
+        int y
+    ) noexcept {
+        int wd = img_->width_;
+        auto ptr = (agm::uint16 *) rgb16_.data;
+        ptr += 3 * (wd * y + x) + 2;
+        int p = ptr[0];
+        p = (p + 0xFFFF) / 2;
+        ptr[0] = p;
     }
 
     /** get the size of the default display. **/

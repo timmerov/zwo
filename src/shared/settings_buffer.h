@@ -37,6 +37,7 @@ public:
     bool auto_iso_ = false;
     int iso_ = 100; /*no scaling*/
     bool show_histogram_ = false;
+    bool show_circles_ = false;
     bool show_fps_ = false;
     std::string save_file_name_;
     std::string raw_file_name_;
