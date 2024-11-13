@@ -1,0 +1,5 @@
+
+- camera and telescope have a field of view of about 20" = 0.3 degrees.
+
+- focuser distance setting is about 29mm for stars.
+
