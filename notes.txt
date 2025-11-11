@@ -3,3 +3,6 @@
 
 - focuser distance setting is about 29mm for stars.
 
+
+Siril Tutorial: Image Stacking & Processing in Astrophotography
+https://sathvikacharyaa.github.io/sirilastro/
