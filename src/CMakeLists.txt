@@ -31,7 +31,7 @@ set_target_properties(${THIS_TARGET_NAME} PROPERTIES
 target_compile_definitions(${THIS_TARGET_NAME} PRIVATE TARGET_NAME=\"${THIS_TARGET_NAME}\")
 
 # some directories.
-set(ZWO_ASI_DIR "/home/timmer/Documents/code/astrophotography/ASI_linux_mac_SDK_V1.26")
+set(ZWO_ASI_DIR "/home/timmer/Documents/code/astrophotography/ASI_linux_mac_SDK_V1.39")
 set(AGM_DIR "${CMAKE_SOURCE_DIR}/../aggiornamento/agm")
 
 # find the opencv package
