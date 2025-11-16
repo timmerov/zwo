@@ -98,7 +98,7 @@ public:
             break;
 
         case 'k':
-            toggleCircles();
+            showHideCircles();
             break;
 
         case 'm':
@@ -149,6 +149,7 @@ public:
         LOG("  i [+-01yn]   : toggle auto iso linear scaling: "<<settings_->auto_iso_);
         LOG("  i iso        : set iso linear scaling [100 none] (disables auto): "<<settings_->iso_);
         LOG("  k [+-01yn]   : toggle collimation circles: "<<settings_->show_circles_);
+        LOG("  k x y        : draw collimation circles at x,y: "<<settings_->circles_x_<<","<<settings_->circles_y_);
         LOG("  mi           : show mount info");
         LOG("  mh           : slew to home (zero) position");
         LOG("  mm [nsew] ms : slew n,s,e,w for milliseconds");
@@ -246,11 +247,26 @@ public:
         settings_->iso_ = new_iso;
     }
 
-    void toggleCircles() noexcept {
-        bool new_circles = getToggleOnOff(settings_->show_circles_);
-        LOG("MenuThread stack collimation circles: "<<new_circles);
-        std::lock_guard<std::mutex> lock(settings_->mutex_);
-        settings_->show_circles_ = new_circles;
+    void showHideCircles() noexcept {
+        std::stringstream ss;
+        ss << input_;
+        char ch;
+        ss >> ch;
+        double x = -2.0;
+        double y = -2.0;
+        ss >> x >> y;
+        if (x < -1.0 || x > +1.0 || y < -1.0 || y > +1.0) {
+            bool new_circles = getToggleOnOff(settings_->show_circles_);
+            LOG("MenuThread stack collimation circles: "<<new_circles);
+            std::lock_guard<std::mutex> lock(settings_->mutex_);
+            settings_->show_circles_ = new_circles;
+        } else {
+            LOG("MenuThread stack collimation circles: "<<x<<","<<y);
+            std::lock_guard<std::mutex> lock(settings_->mutex_);
+            settings_->show_circles_ = true;
+            settings_->circles_x_ = x;
+            settings_->circles_y_ = y;
+        }
     }
 
     void toggleFps() noexcept {

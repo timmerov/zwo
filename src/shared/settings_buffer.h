@@ -38,6 +38,8 @@ public:
     int iso_ = 100; /*no scaling*/
     bool show_histogram_ = false;
     bool show_circles_ = false;
+    double circles_x_ = 0.0;
+    double circles_y_ = 0.0;
     bool show_fps_ = false;
     std::string save_file_name_;
     std::string raw_file_name_;

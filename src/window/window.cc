@@ -38,6 +38,8 @@ public:
     bool auto_iso_ = false;
     int iso_ = 100;
     bool show_circles_ = false;
+    double circles_x_ = 0.0;
+    double circles_y_ = 0.0;
     bool show_histogram_ = false;
     bool show_fps_ = false;
     std::string save_file_name_;
@@ -218,6 +220,8 @@ public:
         auto_iso_ = settings_buffer_->auto_iso_;
         iso_ = settings_buffer_->iso_;
         show_circles_ = settings_buffer_->show_circles_;
+        circles_x_ = settings_buffer_->circles_x_;
+        circles_y_ = settings_buffer_->circles_y_;
         show_fps_ = settings_buffer_->show_fps_;
         save_file_name_ = std::move(settings_buffer_->save_file_name_);
         raw_file_name_ = std::move(settings_buffer_->raw_file_name_);
@@ -770,27 +774,32 @@ public:
         if (show_circles_ == false) {
             return;
         }
-        drawCircle(10);
-        drawCircle(30);
-        drawCircle(100);
-        drawCircle(300);
-        drawCircle(1000);
+        drawCircle(0.02);
+        drawCircle(0.07);
+        for (int i = 1; i <= 5; ++i) {
+            double r = 0.16*double(i);
+            drawCircle(r);
+        }
     }
 
     /** draw one circle around the center of the image. **/
     void drawCircle(
-        int radius
+        double r
     ) noexcept {
         int wd = img_->width_;
         int ht = img_->height_;
         int cx = wd / 2;
         int cy = ht / 2;
-        if (radius >= cx || radius >= cy) {
+        int scale = std::min(cx, cy);
+        int radius = (int) std::round(double(scale) * r);
+        if (radius <= 0) {
             return;
         }
-        if (radius < 0) {
-            return;
-        }
+
+        double dx = double(cx) * circles_x_;
+        double dy = double(cy) * circles_y_;
+        cx += std::round(dx);
+        cy += std::round(dy);
 
         int x = 0;
         int y = radius;
@@ -844,6 +853,13 @@ public:
         int y
     ) noexcept {
         int wd = img_->width_;
+        int ht = img_->height_;
+        if (x < 0 || x >= wd) {
+            return;
+        }
+        if (y < 0 || y >= ht) {
+            return;
+        }
         auto ptr = (agm::uint16 *) rgb16_.data;
         ptr += 3 * (wd * y + x) + 2;
         int p = ptr[0];
