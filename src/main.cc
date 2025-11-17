@@ -13,6 +13,9 @@ create the containers for them to exchange data.
 #include <aggiornamento/log.h>
 #include <aggiornamento/thread.h>
 
+#include <aggiornamento/master.h>
+#include <aggiornamento/nonblocking_input.h>
+
 #include <shared/image_double_buffer.h>
 #include <shared/settings_buffer.h>
 
@@ -21,6 +24,7 @@ create the containers for them to exchange data.
 extern agm::Thread *createCaptureThread(ImageDoubleBuffer *image_double_buffer, SettingsBuffer *settings_buffer);
 extern agm::Thread *createWindowThread(ImageDoubleBuffer *image_double_buffer, SettingsBuffer *settings_buffer);
 extern agm::Thread *createMenuThread(SettingsBuffer *settings_buffer);
+
 
 /** start logging and all threads. **/
 int main(
@@ -48,5 +52,11 @@ int main(
     /** run the threads one of them stops all of them. **/
     agm::Thread::runAll(threads, containers);
 
-    return 0;
+    /**
+    everything at the this point is dead.
+    except for non-blocking input.
+    cause it blocks.
+    **/
+    std::quick_exit(0);
+    //return 0;
 }
