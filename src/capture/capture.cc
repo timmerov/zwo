@@ -111,8 +111,9 @@ public:
 	    /** the scale seems to be 1 to 99 relative to green. defaults are 52,95. **/
     	ASISetControlValue(kCameraNumber, ASI_WB_R, 52, ASI_FALSE);
     	ASISetControlValue(kCameraNumber, ASI_WB_B, 95, ASI_FALSE);
-    	/** no idea what this is. something about usb transfer speed. **/
-        ASISetControlValue(kCameraNumber, ASI_BANDWIDTHOVERLOAD, 40, ASI_FALSE);
+    	/** no reason to set usb transfer speed to less than 100%. **/
+        ASISetControlValue(kCameraNumber, ASI_BANDWIDTHOVERLOAD, 100, ASI_FALSE);
+        //ASISetControlValue(kCameraNumber, ASI_BANDWIDTHOVERLOAD, 40, ASI_FALSE);
         /** no flipping. **/
         ASISetControlValue(kCameraNumber, ASI_FLIP, 0, ASI_FALSE);
         /** these auto settings should not be in use by the camera. **/
@@ -168,6 +169,7 @@ public:
         if (result != ASI_SUCCESS) {
             LOG("CaptureThread Aborting.");
             LOG("  Failed to capture image.");
+            LOG("  ASIGetExpStatus() = "<<status);
             LOG("  ASIGetDataAfterExp() = "<<result);
             agm::master::setDone();
             return;
