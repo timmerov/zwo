@@ -191,15 +191,48 @@ public:
         saveImage();
 
         /** check for user hits escape key. **/
-        int key = cv::waitKey(1);
-        if (key == 27) {
-            /** stop all threads. **/
-            LOG("WindowThread stopping all threads.");
-            agm::master::setDone();
-        }
+        wait_for_swap();
+    }
 
-        /** swap buffers with the capture thread. **/
-        img_ = image_double_buffer_->swap(img_);
+    /**
+    we need o call cv::waitKey periodically.
+    we also need to wait for a new captured image.
+    which could take a long time.
+    long enough that the os thinks the program crashed.
+    */
+    void wait_for_swap() noexcept {
+        static const int kTimeoutMs = 100;
+
+        for(;;) {
+            /** stop waiting if we're quitting. **/
+            if (isRunning() == false) {
+                return;
+            }
+
+            /** do the window things. **/
+            int key = cv::waitKey(1);
+
+            /**
+            user hit escape key.
+            stop all threads.
+            **/
+            if (key == 27) {
+                LOG("WindowThread stopping all threads.");
+                agm::master::setDone();
+                return;
+            }
+
+            /** swap buffers with the capture thread. **/
+            auto img = image_double_buffer_->swap(img_, kTimeoutMs);
+
+            /** we have a new image. **/
+            if (img) {
+                img_ = img;
+                return;
+            }
+
+            /** no new image. loop. **/
+        }
     }
 
     virtual void end() noexcept {

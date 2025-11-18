@@ -22,6 +22,24 @@ namespace {
         ImageBuffer img1_;
         agm::Semaphore sem0_;
         agm::Semaphore sem1_;
+
+        ImageBuffer *swap(
+            agm::Semaphore &sema,
+            agm::Semaphore &semb,
+            ImageBuffer *img,
+            int ms
+        ) noexcept {
+            sema.signal();
+            if (ms == 0) {
+                semb.waitConsume();
+                return img;
+            }
+            bool timedout = semb.waitForConsume(ms);
+            if (timedout) {
+                return nullptr;
+            }
+            return img;
+        }
     };
 }
 
@@ -53,7 +71,8 @@ ImageBuffer *ImageDoubleBuffer::acquire(
 
 /** swap buffers with the other thread. **/
 ImageBuffer *ImageDoubleBuffer::swap(
-    const ImageBuffer *img
+    const ImageBuffer *img,
+    int ms
 ) noexcept {
     /**
     signal this buffer's semaphore.
@@ -61,14 +80,10 @@ ImageBuffer *ImageDoubleBuffer::swap(
     **/
     auto impl = (ImageDoubleBufferImpl *) this;
     if (img == &impl->img0_) {
-        impl->sem0_.signal();
-        impl->sem1_.waitConsume();
-        return &impl->img1_;
+        return impl->swap(impl->sem0_, impl->sem1_, &impl->img1_, ms);
     }
     if (img == &impl->img1_) {
-        impl->sem1_.signal();
-        impl->sem0_.waitConsume();
-        return &impl->img0_;
+        return impl->swap(impl->sem1_, impl->sem0_, &impl->img0_, ms);
     }
     return nullptr;
 }

@@ -43,8 +43,11 @@ public:
     **/
     ImageBuffer *acquire(int which) noexcept;
 
-    /** swap buffers with the other thread. **/
-    ImageBuffer *swap(const ImageBuffer *img) noexcept;
+    /**
+    swap buffers with the other thread.
+    this will return nullptr if it times out.
+    **/
+    ImageBuffer *swap(const ImageBuffer *img, int ms = 0) noexcept;
 
     /**
     unblock both threads as if the other thread
