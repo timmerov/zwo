@@ -113,7 +113,6 @@ public:
     	ASISetControlValue(kCameraNumber, ASI_WB_B, 95, ASI_FALSE);
     	/** no reason to set usb transfer speed to less than 100%. **/
         ASISetControlValue(kCameraNumber, ASI_BANDWIDTHOVERLOAD, 100, ASI_FALSE);
-        //ASISetControlValue(kCameraNumber, ASI_BANDWIDTHOVERLOAD, 40, ASI_FALSE);
         /** no flipping. **/
         ASISetControlValue(kCameraNumber, ASI_FLIP, 0, ASI_FALSE);
         /** these auto settings should not be in use by the camera. **/
