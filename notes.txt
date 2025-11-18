@@ -54,3 +54,27 @@ shift the cradle to the same or different star.
 repeat with small steps. usually 1/4 turn.
 repeat with a different pair of adjustment screws.
 repeat until satisifed or frustrated.
+
+
+camera oddities:
+
+there are numerous pixels that appear to leak.
+they accumulate color way faster than all other pixels.
+even in the dark.
+even with modest exposure times.
+probably need to identify them and ignore them.
+but then there are other pixels that leak a little.
+so for long exposures they're too bright.
+seems like we need to intentionally drift the image.
+so we can identify the too-bright pixels.
+
+i have the driver/library crash with long exposure times.
+that was with the 1.26 library.
+1.39 seems to be better.
+
+the fastest i can get the camera to run at rull resolution is 4 fps.
+it appears the camera is single buffered.
+ie it can capture or unload.
+it can't do both simultaneously.
+so below 250 ms exposure time - fps is dominated by io transfer.
+greater than 250 ms - fps is dominated by capture time.
