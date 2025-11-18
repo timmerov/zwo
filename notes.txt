@@ -6,3 +6,51 @@
 
 Siril Tutorial: Image Stacking & Processing in Astrophotography
 https://sathvikacharyaa.github.io/sirilastro/
+
+
+collimation procedure
+
+1. center the small secondary mirror.
+use a small ruler that fits inside the tube.
+the distance from tube to outer diameter of the base is about 48 mm.
+
+2. align the secondary mirror.
+loosen the three tiny screws on the secondary mirror base.
+look through the focuser tube.
+use a medium screwdriver to position the secondary mirror.
+get a friend to tighten the tiny screws.
+1/8 turn at a time.
+
+3. align the focuser tube using shims.
+repeat steps 2,3 as needed or until frustrated.
+
+4. strap the scope into its cradle.
+clamp it to a table.
+place the artificial star field about 20' away.
+attach camera with all 4 spacers.
+fully extend the focuser.
+remove cover.
+
+5. run the zwo code.
+exposure (e) about 10,000 us.
+iso (1) about 2000.
+show the collimation circles (k).
+shift the cradle until a star is in view.
+adjust focus so it's about 60% of the window height.
+
+5. adjust the primary mirror so the shadow of the secondary mirror is centered.
+there are three pairs of medium screws.
+the right screw threads with the tube.
+the left screw threads with the mirrror.
+loosen one. tighten the other.
+use your finger or screwdriver handle to determine which set to adjust.
+
+6. to "lift" the mirror - loosen left, tighten right.
+if the shadow is too far left then you need to lift the right.
+usually you go in small increments.
+but for the first time i do 1-2 complete turns to ensure this is the correct direction.
+adjusting the mirror will move the star out of the field of view.
+shift the cradle to the same or different star.
+repeat with small steps. usually 1/4 turn.
+repeat with a different pair of adjustment screws.
+repeat until satisifed or frustrated.
