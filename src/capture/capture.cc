@@ -30,6 +30,7 @@ public:
 
     /** internal fields. **/
     static const int kCameraNumber = 0;
+    int num_cameras_ = -1; /// unknown
     int width_ = 0;
     int height_ = 0;
     int over61_ = 0;
@@ -53,11 +54,27 @@ public:
         **/
         img_ = image_double_buffer_->acquire(0);
 
+        /** start with an exposure of 20 milliseconds. **/
+        exposure_ = 20 * 1000;
+    }
+
+    void init_camera() noexcept {
         /** find the camera. **/
-        int num_cameras = ASIGetNumOfConnectedCameras();
-        if (num_cameras != 1) {
+        int org_num_cameras = num_cameras_;
+        num_cameras_ = ASIGetNumOfConnectedCameras();
+
+        /** no cameras. look again later. **/
+        if (num_cameras_ == 0) {
+            if (org_num_cameras < 0) {
+                LOG("No camera found.");
+            }
+            return;
+        }
+
+        /** more than one camera. abort. **/
+        if (num_cameras_ != 1) {
             LOG("CaptureThread Aborting.");
-            LOG("  Number of cameras is "<<num_cameras<<".");
+            LOG("  Number of cameras is "<<num_cameras_<<".");
             LOG("  Expected number is 1.");
             agm::master::setDone();
             return;
@@ -136,12 +153,20 @@ public:
             agm::master::setDone();
             return;
         }
-
-        /** start with an exposure of 20 milliseconds. **/
-        exposure_ = 20 * 1000;
     }
 
     virtual void runOnce() noexcept {
+        if (num_cameras_ <= 0) {
+            init_camera();
+        }
+        if (isRunning() == false) {
+            return;
+        }
+        if (num_cameras_ == 0) {
+            agm::sleep::milliseconds(100);
+            return;
+        }
+
         /** ensure we have a buffer to read into. **/
         allocateBuffer();
 
@@ -165,12 +190,14 @@ public:
         if (status == ASI_EXP_SUCCESS) {
             result = ASIGetDataAfterExp(kCameraNumber, img_->bayer_.data, img_->bytes_);
         }
-        if (result != ASI_SUCCESS) {
-            LOG("CaptureThread Aborting.");
-            LOG("  Failed to capture image.");
+        if (status != ASI_EXP_SUCCESS || result != ASI_SUCCESS) {
+            LOG("CaptureThread capture failed.");
             LOG("  ASIGetExpStatus() = "<<status);
             LOG("  ASIGetDataAfterExp() = "<<result);
-            agm::master::setDone();
+            LOG("Assume camera was unplugged.");
+            LOG("Closing camera.");
+        	ASICloseCamera(kCameraNumber);
+        	num_cameras_ = 0;
             return;
         }
 
@@ -178,6 +205,13 @@ public:
         autoAdjustExposure();
 
         img_ = image_double_buffer_->swap(img_);
+    }
+
+    virtual void end() noexcept {
+        if (num_cameras_ == 1) {
+        	ASICloseCamera(kCameraNumber);
+        }
+    	LOG("CaptureThread Closed camera.");
     }
 
     void allocateBuffer() noexcept {
@@ -293,11 +327,6 @@ public:
         int big = std::max(over61_, under61_);
         over61_ = over61_ * 90 / big;
         under61_ = under61_ * 90 / big;
-    }
-
-    virtual void end() noexcept {
-    	ASICloseCamera(kCameraNumber);
-    	LOG("CaptureThread Closed camera.");
     }
 };
 }
