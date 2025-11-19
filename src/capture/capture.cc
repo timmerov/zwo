@@ -184,7 +184,12 @@ public:
             if (status != ASI_EXP_WORKING) {
                 break;
             }
-            agm::sleep::milliseconds(1);
+            if (isRunning() == false) {
+                ASIStopExposure(kCameraNumber);
+                LOG("CaptureThread capture stopped.");
+                return;
+            }
+            agm::sleep::milliseconds(10);
         }
 		auto result = ASI_ERROR_END;
         if (status == ASI_EXP_SUCCESS) {
