@@ -30,6 +30,10 @@ public:
     SettingsBuffer *settings_buffer_ = nullptr;
     bool accumulate_ = false;
     bool capture_black_ = false;
+    int black_frames_ = 0;
+    double black_mean_ = 0.0;
+    double black_std_dev_ = 0.0;
+    std::vector<int> bad_pixels_;
     double balance_red_ = 1.0;
     double balance_blue_ = 1.0;
     int exposure_ = 100;
@@ -144,6 +148,9 @@ public:
 
         /** capture black. **/
         captureBlack();
+
+        /** fix bad pixels. **/
+        fixBadPixels();
 
         /** subtract black. **/
         subtractBlack();
@@ -291,8 +298,12 @@ public:
         LOG("blurriness: "<<blurriness);
     }
 
+    /**
+    capture a sequence of black frames.
+    **/
     void captureBlack() noexcept {
         if (capture_black_ == false) {
+            processBlack();
             return;
         }
 
@@ -301,39 +312,122 @@ public:
         int ht = img_->height_;
         if (black_.rows == 0) {
             black_ = cv::Mat(ht, wd, CV_16UC1);
-            black_ = 0;
+            bad_pixels_.resize(0);
         }
 
-        /**
-        we're looking for pixels that leak too much current.
-        in other words, they're too bright.
-        some are way too bright.
-        they get brighter linearly with exposure time.
-        save the brightest values.
-        scale to an exposure time of 1 second = 10000000 us.
-        leakage apparently varies with temperature.
-        which is unfortunate.
-        and is why we save the maximum value.
-        **/
-        int mx = 0;
+        /** the first black image of this set. **/
+        if (black_frames_ == 0) {
+            black_ = 0;
+        }
+        ++black_frames_;
+
+        /** get the mean and standard deviation of the image. **/
+        cv::Scalar mean;
+        cv::Scalar stddev;
+        cv::meanStdDev(img_->bayer_, mean, stddev);
+        black_mean_ += mean[0];
+        black_std_dev_ += stddev[0];
+
+        /** accumulate black per pixel. don't overflow. **/
         int sz = wd * ht;
         auto pimg = (agm::uint16 *) img_->bayer_.data;
         auto pblk = (agm::uint16 *) black_.data;
         for (int i = 0; i < sz; ++i) {
-            /** 16 bits **/
-            int pix = *pimg;
-            agm::int64 x = *pblk;
-            /** +20 bits = 36 bits > 32 bits. **/
-            x = x * 1000000 / exposure_;
-            int blk = std::min(x, 65535L);
-            blk = std::max(blk, pix);
-            mx = std::max(mx, blk);
+            int blk = *pimg++ + *pblk;
+            blk = std::min(blk, 65535);
             *pblk++ = blk;
-
-            /** show black while we're capturing it. **/
-            *pimg++ = blk;
         }
-        LOG("max black leakage per second: "<<mx);
+
+        LOG("Captured black frame "<<black_frames_);
+    }
+
+    void processBlack() noexcept {
+        if (black_frames_ == 0) {
+            return;
+        }
+
+        /** compute black mean and standard deviation. **/
+        int round = black_frames_ / 2;
+        black_mean_ = (black_mean_ + round) / black_frames_;
+        black_std_dev_ = (black_std_dev_ + round) / black_frames_;
+        LOG("Black mean="<<black_mean_<<" stdev="<<black_std_dev_);
+
+        /** compute average black per pixel. **/
+        int wd = img_->width_;
+        int ht = img_->height_;
+        int sz = wd * ht;
+        auto pblk = (agm::uint16 *) black_.data;
+        for (int i = 0; i < sz; ++i) {
+            int blk = *pblk;
+            if (blk < 65535L) {
+                blk = (blk + round) / black_frames_;
+                *pblk = blk;
+            }
+            ++pblk;
+        }
+
+        /**
+        find bad pixels.
+        they are more than 4 standard deviations too bright.
+        **/
+        int limit = std::round(black_mean_ + 4 * black_std_dev_);
+        int mean = std::round(black_mean_);
+        LOG("Bad pixel limit="<<limit);
+        pblk = (agm::uint16 *) black_.data;
+        int count = 0;
+        for (int i = 0; i < sz; ++i) {
+            int blk = *pblk;
+            if (blk > limit) {
+                /** change its black value to the mean. **/
+                *pblk = mean;
+                /** remember its location. **/
+                bad_pixels_.push_back(i);
+
+                /** log it. **/
+                ++count;
+                LOG("found bad pixel["<<count<<"] value="<<blk<<" at position="<<i);
+            }
+            ++pblk;
+        }
+
+        LOG("Captured "<<black_frames_<<" black frames.");
+        black_frames_ = 0;
+    }
+
+    void fixBadPixels() noexcept {
+        /** don't fix bad pixels if we're capturing black. **/
+        if (capture_black_) {
+            return;
+        }
+
+        /**
+        use the average of its neighbors.
+        unless it's at the top or bottom edge.
+        then make it black.
+        left and right can wrap around.
+        cause lazy.
+        **/
+        int wd = img_->width_;
+        int ht = img_->height_;
+        int sz = wd * ht;
+        int mean = std::round(black_mean_);
+        auto pimg = (agm::uint16 *) img_->bayer_.data;
+        for (auto pos : bad_pixels_) {
+            /** source is bayer. **/
+            int pos0 = pos - 2*wd;
+            int pos1 = pos - 2;
+            int pos2 = pos + 2;
+            int pos3 = pos + 2*wd;
+            if (pos0 < 0 || pos3 >= sz) {
+                pimg[pos] = mean;
+            } else {
+                int p0 = pimg[pos0];
+                int p1 = pimg[pos1];
+                int p2 = pimg[pos2];
+                int p3 = pimg[pos3];
+                pimg[pos] = (p0 + p1 + p2 + p3 + 2) / 4;
+            }
+        }
     }
 
     /**
@@ -349,39 +443,19 @@ public:
             return;
         }
 
-        /**
-        scale black to exposure time.
-        subtract from captured image.
-        **/
-        int mx = 0;
+        /** subtract black. assume same exposure time. **/
         int sz = img_->width_ * img_->height_;
         auto pimg = (agm::uint16 *) img_->bayer_.data;
         auto pblk = (agm::uint16 *) black_.data;
         for (int i = 0; i < sz; ++i) {
             /** 16 bits **/
             int pix = *pimg;
-            agm::int64 x = *pblk++;
-            /** +28 bits = 44 bits > 32 bits **/
-            x = x * exposure_ / 1000000;
-            int blk = std::min(x, 65535L);
+            int blk = *pblk++;
             pix -= blk;
+            /** don't underflow. **/
             pix = std::max(0, pix);
-            mx = std::max(mx, pix);
-
-            /**
-            there's a bit of an issue here.
-            some pixels are very leaky.
-            and quite variable in their leakiness.
-            so for these suspect pixels with high black values...
-            we don't know what the correct black value is now.
-            so we should handle suspect pixels by comparing the
-            correct value to the values of its neighbors.
-            if it's out of whack, then we should use the average
-            value of its neighbors instead of the corrected value.
-            **/
             *pimg++ = pix;
         }
-        LOG("max captured component: "<<mx);
     }
 
     /** no alignment **/
