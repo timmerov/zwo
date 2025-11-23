@@ -6,8 +6,10 @@ Copyright (C) 2012-2024 tim cotter. All rights reserved.
 run the menu thread.
 **/
 
+#include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <fstream>
 #include <sstream>
 
 #include <aggiornamento/aggiornamento.h>
@@ -43,6 +45,7 @@ public:
         LOG("MenuThread");
         mount_ = Ioptron::create();
         mount_->connect();
+        loadConfigFile();
     }
 
     /** run until we're told to stop. **/
@@ -154,8 +157,12 @@ public:
         }
 
         /** consume one line of input. **/
-        int eol = input_.find('\n');
-        input_.erase(0, eol + 1);
+        auto eol = input_.find('\n');
+        if (eol == std::string::npos) {
+            input_.clear();
+        } else {
+            input_.erase(0, eol + 1);
+        }
     }
 
     void showMenu() noexcept {
@@ -425,6 +432,22 @@ public:
         {
             std::lock_guard<std::mutex> lock(settings_->mutex_);
             std::swap(settings_->raw_file_name_, filename);
+        }
+    }
+
+    /** stuff the config file into the input buffer. **/
+    void loadConfigFile() noexcept {
+        std::ifstream cfg("zwo.cfg");
+        if (cfg.is_open()) {
+            LOG("MenuThread Loading commands from config file \"zwo.cfg\".");
+            std::stringstream ss;
+            ss << cfg.rdbuf();
+            input_ = std::move(ss.str());
+
+            /** change carriage returns to end lines. **/
+            std::replace(input_.begin(), input_.end(), '\r', '\n');
+        } else {
+            LOG("MenuThead Config file \"zwo.cfg\" not found.");
         }
     }
 
