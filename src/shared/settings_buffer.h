@@ -43,6 +43,7 @@ public:
     bool show_fps_ = false;
     std::string save_file_name_;
     std::string raw_file_name_;
+    std::string input_;
 };
 
 class SettingsBuffer : public Settings {
@@ -53,4 +54,5 @@ public:
 
     std::mutex mutex_;
 
+    void appendToInput(const std::string str) noexcept;
 };

@@ -48,6 +48,7 @@ public:
     bool show_fps_ = false;
     std::string save_file_name_;
     std::string raw_file_name_;
+    std::string input_;
 
     /** our fields. **/
     cv::String win_name_ = "ZWO ASI";
@@ -227,6 +228,21 @@ public:
                 LOG("WindowThread stopping all threads.");
                 agm::master::setDone();
                 return;
+            }
+
+            /**
+            append key to input.
+            send it to the menu thread when complete.
+            **/
+            if (key == '\r') {
+                key = '\n';
+            }
+            if (std::isprint(key) || key == '\n') {
+                input_.push_back(key);
+                if (key == '\n') {
+                    std::lock_guard<std::mutex> lock(settings_buffer_->mutex_);
+                    settings_buffer_->input_ = std::move(input_);
+                }
             }
 
             /** swap buffers with the capture thread. **/

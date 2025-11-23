@@ -47,7 +47,7 @@ public:
 
     /** run until we're told to stop. **/
     virtual void runOnce() noexcept {
-        input_ = nbi_.get();
+        get_input();
         parse_input();
         agm::sleep::milliseconds(100);
     }
@@ -57,6 +57,17 @@ public:
         delete mount_;
         mount_ = nullptr;
         LOG("MenuThread disconnected the mount.");
+    }
+
+    /** get input from stdin and from the settings buffer. **/
+    void get_input() noexcept {
+        input_ = nbi_.get();
+        if (input_.size()) {
+            return;
+        }
+
+        std::lock_guard<std::mutex> lock(settings_->mutex_);
+        input_ = std::move(settings_->input_);
     }
 
     void parse_input() noexcept {
