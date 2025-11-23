@@ -49,7 +49,7 @@ public:
     virtual void runOnce() noexcept {
         get_input();
         parse_input();
-        agm::sleep::milliseconds(100);
+        agm::sleep::milliseconds(10);
     }
 
     virtual void end() noexcept {
@@ -61,11 +61,18 @@ public:
 
     /** get input from stdin and from the settings buffer. **/
     void get_input() noexcept {
+        /** don't get more input if we already have input. **/
+        if (input_.size()) {
+            return;
+        }
+
+        /** get input from stdin. **/
         input_ = nbi_.get();
         if (input_.size()) {
             return;
         }
 
+        /** get input from some other thread. **/
         std::lock_guard<std::mutex> lock(settings_->mutex_);
         input_ = std::move(settings_->input_);
     }
@@ -145,6 +152,10 @@ public:
             showMenu();
             break;
         }
+
+        /** consume one line of input. **/
+        int eol = input_.find('\n');
+        input_.erase(0, eol + 1);
     }
 
     void showMenu() noexcept {
