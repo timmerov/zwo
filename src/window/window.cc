@@ -72,6 +72,7 @@ public:
     int display_width_ = 0;
     int display_height_ = 0;
     cv::Rect aoi_;
+    bool logged_once_ = false;
 
     WindowThread(
         ImageDoubleBuffer *image_double_buffer,
@@ -108,8 +109,11 @@ public:
         int wd = img_->width_;
         int ht = img_->height_;
         if (img_->width_ == 0) {
-            LOG("WindowThread Received no image.");
-            img_ = image_double_buffer_->swap(img_);
+            if (logged_once_ == false) {
+                logged_once_ = true;
+                LOG("WindowThread Received no image.");
+            }
+            wait_for_swap();
             return;
         }
 

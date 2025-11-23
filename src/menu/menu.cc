@@ -45,7 +45,7 @@ public:
         LOG("MenuThread");
         mount_ = Ioptron::create();
         mount_->connect();
-        loadConfigFile();
+        loadConfigFile("zwo.cfg");
     }
 
     /** run until we're told to stop. **/
@@ -436,10 +436,12 @@ public:
     }
 
     /** stuff the config file into the input buffer. **/
-    void loadConfigFile() noexcept {
-        std::ifstream cfg("zwo.cfg");
+    void loadConfigFile(
+        const char *filename
+    ) noexcept {
+        std::ifstream cfg(filename);
         if (cfg.is_open()) {
-            LOG("MenuThread Loading commands from config file \"zwo.cfg\".");
+            LOG("MenuThread Loading commands from config file \""<<filename<<"\".");
             std::stringstream ss;
             ss << cfg.rdbuf();
             input_ = std::move(ss.str());
@@ -447,13 +449,14 @@ public:
             /** change carriage returns to end lines. **/
             std::replace(input_.begin(), input_.end(), '\r', '\n');
         } else {
-            LOG("MenuThead Config file \"zwo.cfg\" not found.");
+            LOG("MenuThead Config file \""<<filename<<"\" not found.");
         }
     }
 
     /** run the experiment of the day. **/
     void experiment() noexcept {
-        LOG("Hello, World!");
+        LOG("Experiment of the day.");
+        loadConfigFile("experiment.cfg");
     }
 
     /** show how the program is to be used. **/
