@@ -122,6 +122,10 @@ public:
             showHideCircles();
             break;
 
+        case 'l':
+            loadImage();
+            break;
+
         case 'm':
             handleMount();
             break;
@@ -179,6 +183,7 @@ public:
         LOG("  i iso        : set iso linear scaling [100 none] (disables auto): "<<settings_->iso_);
         LOG("  k [+-01yn]   : toggle collimation circles: "<<settings_->show_circles_);
         LOG("  k x y        : draw collimation circles at x,y: "<<settings_->circles_x_<<","<<settings_->circles_y_);
+        LOG("  l file       : load image file");
         LOG("  mi           : show mount info");
         LOG("  mh           : slew to home (zero) position");
         LOG("  mm [nsew] ms : slew n,s,e,w for milliseconds");
@@ -401,6 +406,23 @@ public:
         agm::master::setDone();
     }
 
+    void loadImage() noexcept {
+        std::stringstream ss;
+        ss << input_;
+        char ch;
+        std::string filename;
+        ss >> ch >> filename;
+        if (filename.size() == 0) {
+            return;
+        }
+
+        LOG("MenuThread load file: "<<filename);
+        {
+            std::lock_guard<std::mutex> lock(settings_->mutex_);
+            std::swap(settings_->load_file_name_, filename);
+        }
+    }
+
     void saveImage() noexcept {
         std::stringstream ss;
         ss << input_;
@@ -444,10 +466,17 @@ public:
             LOG("MenuThread Loading commands from config file \""<<filename<<"\".");
             std::stringstream ss;
             ss << cfg.rdbuf();
-            input_ = std::move(ss.str());
+            input_ += std::move(ss.str());
 
-            /** change carriage returns to end lines. **/
-            std::replace(input_.begin(), input_.end(), '\r', '\n');
+            if (input_.size() > 0) {
+                /** change carriage returns to end lines. **/
+                std::replace(input_.begin(), input_.end(), '\r', '\n');
+
+                /** ensure the last character is \n. **/
+                if (input_.back() != '\n') {
+                    input_ += "\n";
+                }
+            }
         } else {
             LOG("MenuThead Config file \""<<filename<<"\" not found.");
         }

@@ -24,9 +24,10 @@ public:
     ImageDoubleBuffer *image_double_buffer_ = nullptr;
     ImageBuffer *img_ = nullptr;
     /** share data with the menu thread. **/
-    SettingsBuffer *settings_buffer_ = nullptr;
+    SettingsBuffer *settings_ = nullptr;
     bool auto_exposure_ = false;
     int exposure_ = 0;
+    std::string load_file_name_;
 
     /** internal fields. **/
     static const int kCameraNumber = 0;
@@ -41,7 +42,7 @@ public:
         SettingsBuffer *settings_buffer
     ) noexcept : agm::Thread("CaptureThread") {
         image_double_buffer_ = image_double_buffer;
-        settings_buffer_ = settings_buffer;
+        settings_ = settings_buffer;
     }
 
     virtual ~CaptureThread() = default;
@@ -162,16 +163,29 @@ public:
         if (isRunning() == false) {
             return;
         }
-        if (num_cameras_ == 0) {
-            agm::sleep::milliseconds(100);
-            return;
-        }
-
-        /** ensure we have a buffer to read into. **/
-        allocateBuffer();
 
         /** copy all of the settings at once. **/
         copySettings();
+
+        /** mabye load a file. **/
+        if (load_file_name_.size() > 0) {
+            loadImageFromFile();
+        }
+
+        /** maybe transfer an image from the camera. **/
+        else if (num_cameras_ > 0) {
+            transferImageFromCamera();
+        }
+
+        /** maybe snooze for a bit. **/
+        else {
+            agm::sleep::milliseconds(100);
+        }
+    }
+
+    void transferImageFromCamera() noexcept {
+        /** ensure we have a buffer to read into. **/
+        allocateBuffer();
 
     	/** exposure time is in microseconds. **/
 	    ASISetControlValue(kCameraNumber, ASI_EXPOSURE, exposure_, ASI_FALSE);
@@ -212,6 +226,83 @@ public:
         img_ = image_double_buffer_->swap(img_);
     }
 
+    void loadImageFromFile() noexcept {
+        LOG("CaptureThread Loading file \""<<load_file_name_<<"\".");
+        cv::Mat img = cv::imread(load_file_name_, cv::IMREAD_COLOR | cv::IMREAD_ANYDEPTH);
+
+        if (img.empty()) {
+            LOG("Failed to read file.");
+            return;
+        }
+
+        int wd = img.cols;
+        int ht = img.rows;
+        int sz = img.elemSize1();
+        LOG("img is "<<wd<<"x"<<ht<<" sz="<<sz);
+
+        cv::Mat img16;
+        if (sz == 2) {
+            img16 = img;
+        } else {
+            img.convertTo(img16, CV_16UC3, 257);
+        }
+        LOG("img16 is "<<img16.cols<<"x"<<img16.rows<<" bytes="<<img16.elemSize1());
+
+        cv::Mat bayer(ht, wd, CV_16UC1);
+        LOG("bayer is "<<bayer.cols<<"x"<<bayer.rows<<" bytes="<<bayer.elemSize1());
+
+        /** convert BGR to bayer RGGB format. **/
+        auto pimg = (agm::uint16 *) img16.data;
+        auto pbayer = (agm::uint16 * ) bayer.data;
+        int iwd = wd * 3;
+        for (int y = 0; y < ht; y += 2) {
+            for (int x = 0; x < wd; x += 2) {
+                /** get 4 reds : bgR bgR / bgR bgR **/
+                int r0 = pimg[2];
+                int r1 = pimg[3+2];
+                int r2 = pimg[iwd+2];
+                int r3 = pimg[iwd+3+2];
+                int r = (r0 + r1 + r2 + r3 + 2) / 4;
+                /** set red : Rg / gb **/
+                pbayer[0] = r;
+
+                /** get 4 greens : bGr bGr / bGr bGr **/
+                int g0 = pimg[1];
+                int g1 = pimg[3+1];
+                int g2 = pimg[iwd+1];
+                int g3 = pimg[iwd+3+1];
+                int g = (g0 + g1 + g2 + g3 + 2) / 4;
+                /** set greens : rG / Gb **/
+                pbayer[1] = g;
+                pbayer[wd] = g;
+
+                /** get 4 blues : Bgr Bgr / Bgr Bgr **/
+                int b0 = pimg[0];
+                int b1 = pimg[3];
+                int b2 = pimg[iwd];
+                int b3 = pimg[iwd+3];
+                int b = (b0 + b1 + b2 + b3 + 2) / 4;
+                /** set blue : rg / gB **/
+                pbayer[wd+1] = b;
+
+                /** bump pointers by two pixels. **/
+                pimg += 3*2;
+                pbayer += 2;
+            }
+
+            /** bump pointers by one row. **/
+            pimg += iwd;
+            pbayer += wd;
+        }
+
+        /** do the things. **/
+        width_ = wd;
+        height_ = ht;
+        allocateBuffer();
+        img_->bayer_ = std::move(bayer);
+        img_ = image_double_buffer_->swap(img_);
+    }
+
     virtual void end() noexcept {
         if (num_cameras_ == 1) {
         	ASICloseCamera(kCameraNumber);
@@ -233,16 +324,17 @@ public:
     }
 
     void copySettings() noexcept {
-        std::lock_guard<std::mutex> lock(settings_buffer_->mutex_);
-        auto_exposure_ = settings_buffer_->auto_exposure_;
-        exposure_ = settings_buffer_->exposure_;
+        std::lock_guard<std::mutex> lock(settings_->mutex_);
+        auto_exposure_ = settings_->auto_exposure_;
+        exposure_ = settings_->exposure_;
+        load_file_name_ = std::move(settings_->load_file_name_);
     }
 
     void writeSettings() noexcept {
         /** only update exposure if auto exposure is enabled. **/
-        std::lock_guard<std::mutex> lock(settings_buffer_->mutex_);
-        if (settings_buffer_->auto_exposure_) {
-            settings_buffer_->exposure_ = exposure_;
+        std::lock_guard<std::mutex> lock(settings_->mutex_);
+        if (settings_->auto_exposure_) {
+            settings_->exposure_ = exposure_;
         }
     }
 

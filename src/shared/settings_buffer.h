@@ -41,6 +41,7 @@ public:
     double circles_x_ = 0.0;
     double circles_y_ = 0.0;
     bool show_fps_ = false;
+    std::string load_file_name_;
     std::string save_file_name_;
     std::string raw_file_name_;
     std::string input_;
