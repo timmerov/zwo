@@ -151,6 +151,10 @@ public:
             experiment();
             break;
 
+        case 'z':
+            toggleFindStars();
+            break;
+
         case '?':
             showHelp();
             break;
@@ -194,6 +198,7 @@ public:
         LOG("  s file       : save the image (disables stacking).");
         LOG("  t file       : save the raw 16 bit image as tiff.");
         LOG("  x            : run the experiment of the day");
+        LOG("  z [+-01yn]   : find and circle stars");
         LOG("  ?            : show help");
     }
 
@@ -486,6 +491,13 @@ public:
     void experiment() noexcept {
         LOG("Experiment of the day.");
         loadConfigFile("experiment.cfg");
+    }
+
+    void toggleFindStars() noexcept {
+        bool new_find_stars = getToggleOnOff(settings_->find_stars_);
+        LOG("MenuThread find stars: "<<new_find_stars);
+        std::lock_guard<std::mutex> lock(settings_->mutex_);
+        settings_->find_stars_ = new_find_stars;
     }
 
     /** show how the program is to be used. **/

@@ -27,7 +27,7 @@ public:
     ImageDoubleBuffer *image_double_buffer_ = nullptr;
     ImageBuffer *img_ = nullptr;
     /** share data with the menu thread. **/
-    SettingsBuffer *settings_buffer_ = nullptr;
+    SettingsBuffer *settings_ = nullptr;
     bool accumulate_ = false;
     bool capture_black_ = false;
     int black_frames_ = 0;
@@ -46,6 +46,7 @@ public:
     double circles_y_ = 0.0;
     bool show_histogram_ = false;
     bool show_fps_ = false;
+    bool find_stars_ = false;
     std::string save_file_name_;
     std::string raw_file_name_;
     std::string input_;
@@ -79,7 +80,7 @@ public:
         SettingsBuffer *settings_buffer
     ) noexcept : agm::Thread("WindowThread") {
         image_double_buffer_ = image_double_buffer;
-        settings_buffer_ = settings_buffer;
+        settings_ = settings_buffer;
     }
 
     virtual ~WindowThread() = default;
@@ -190,6 +191,9 @@ public:
         /** show collimation circlex. **/
         showCollimationCircles();
 
+        /** find and circle stars. **/
+        findStars();
+
         /** apply display gamma. **/
         applyDisplayGamma();
 
@@ -244,8 +248,8 @@ public:
             if (std::isprint(key) || key == '\n') {
                 input_.push_back(key);
                 if (key == '\n') {
-                    std::lock_guard<std::mutex> lock(settings_buffer_->mutex_);
-                    settings_buffer_->input_ = std::move(input_);
+                    std::lock_guard<std::mutex> lock(settings_->mutex_);
+                    settings_->input_ = std::move(input_);
                 }
             }
 
@@ -268,23 +272,24 @@ public:
     }
 
     void copySettings() noexcept {
-        std::lock_guard<std::mutex> lock(settings_buffer_->mutex_);
-        accumulate_ = settings_buffer_->accumulate_;
-        capture_black_ = settings_buffer_->capture_black_;
-        balance_red_ = settings_buffer_->balance_red_;
-        balance_blue_ = settings_buffer_->balance_blue_;
-        exposure_ = settings_buffer_->exposure_;
-        show_focus_ = settings_buffer_->show_focus_;
-        gamma_ = settings_buffer_->gamma_;
-        show_histogram_ = settings_buffer_->show_histogram_;
-        auto_iso_ = settings_buffer_->auto_iso_;
-        iso_ = settings_buffer_->iso_;
-        show_circles_ = settings_buffer_->show_circles_;
-        circles_x_ = settings_buffer_->circles_x_;
-        circles_y_ = settings_buffer_->circles_y_;
-        show_fps_ = settings_buffer_->show_fps_;
-        save_file_name_ = std::move(settings_buffer_->save_file_name_);
-        raw_file_name_ = std::move(settings_buffer_->raw_file_name_);
+        std::lock_guard<std::mutex> lock(settings_->mutex_);
+        accumulate_ = settings_->accumulate_;
+        capture_black_ = settings_->capture_black_;
+        balance_red_ = settings_->balance_red_;
+        balance_blue_ = settings_->balance_blue_;
+        exposure_ = settings_->exposure_;
+        show_focus_ = settings_->show_focus_;
+        gamma_ = settings_->gamma_;
+        show_histogram_ = settings_->show_histogram_;
+        auto_iso_ = settings_->auto_iso_;
+        iso_ = settings_->iso_;
+        show_circles_ = settings_->show_circles_;
+        circles_x_ = settings_->circles_x_;
+        circles_y_ = settings_->circles_y_;
+        show_fps_ = settings_->show_fps_;
+        find_stars_ = settings_->find_stars_;
+        save_file_name_ = std::move(settings_->save_file_name_);
+        raw_file_name_ = std::move(settings_->raw_file_name_);
     }
 
     void checkBlurriness() noexcept {
@@ -630,8 +635,8 @@ public:
         if (auto_iso_ && iso != iso_) {
             iso_ = iso;
             LOG("new auto iso="<<iso);
-            std::lock_guard<std::mutex> lock(settings_buffer_->mutex_);
-            settings_buffer_->iso_ = iso;
+            std::lock_guard<std::mutex> lock(settings_->mutex_);
+            settings_->iso_ = iso;
         }
     }
 
@@ -901,16 +906,18 @@ public:
         if (show_circles_ == false) {
             return;
         }
-        drawCircle(0.02);
-        drawCircle(0.07);
+        drawCircle(circles_x_, circles_y_, 0.02);
+        drawCircle(circles_x_, circles_y_, 0.07);
         for (int i = 1; i <= 5; ++i) {
             double r = 0.16*double(i);
-            drawCircle(r);
+            drawCircle(circles_x_, circles_y_, r);
         }
     }
 
     /** draw one circle around the center of the image. **/
     void drawCircle(
+        double center_x,
+        double center_y,
         double r
     ) noexcept {
         int wd = img_->width_;
@@ -923,8 +930,8 @@ public:
             return;
         }
 
-        double dx = double(cx) * circles_x_;
-        double dy = double(cy) * circles_y_;
+        double dx = double(cx) * center_x;
+        double dy = double(cy) * center_y;
         cx += std::round(dx);
         cy += std::round(dy);
 
@@ -1071,8 +1078,8 @@ public:
         nstacked_ = 0;
         rgb32_ = 0;
 
-        std::lock_guard<std::mutex> lock(settings_buffer_->mutex_);
-        settings_buffer_->accumulate_ = false;
+        std::lock_guard<std::mutex> lock(settings_->mutex_);
+        settings_->accumulate_ = false;
     }
 
     /** save the 8 bit image using opencv. **/
@@ -1236,6 +1243,15 @@ public:
         x *= kInt32Max;
         x /= scale;
         return (int) x;
+    }
+
+    void findStars() noexcept {
+        if (find_stars_ == false) {
+            return;
+        }
+
+        LOG("Found a fake star!");
+        drawCircle(-0.485, +0.40, 0.05);
     }
 };
 }
