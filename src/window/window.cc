@@ -179,11 +179,11 @@ public:
         /** gamma power scale. **/
         gammaPowerScale();
 
-        /** adjust BGR colors. **/
-        convertStdRgb();
-
         /** balance colors. **/
         balanceColors();
+
+        /** find stars. **/
+        findStars();
 
         /** show histogram. **/
         showHistogram();
@@ -191,8 +191,8 @@ public:
         /** show collimation circlex. **/
         showCollimationCircles();
 
-        /** find and circle stars. **/
-        findStars();
+        /** circle stars. **/
+        showStars();
 
         /** apply display gamma. **/
         applyDisplayGamma();
@@ -663,53 +663,6 @@ public:
         }
     }
 
-    void convertStdRgb() noexcept {
-        /**
-        it turns out...
-        this camera really wants to be lit by sunlight.
-        the halogen lighting in my office does bad things.
-        specifically, blues and greens are indistinguishable.
-        the below color correction matrix was derived from taking
-        pictures of the computer screen with the halogen light on.
-        i ran a different experiment with the macbeth color calibration chart.
-        the colors were pretty darn good.
-        the fisheye lens distorted things massively.
-        so...
-        the conclusion is we don't need to do anything to convert to standard rgb.
-        amazing.
-        **/
-#if 0
-        /** adjust BGR colors **/
-        int sz = img_->width_ * img_->height_;
-        auto ptr = (agm::uint16 *) rgb16_.data;
-        for (int i = 0; i < sz; ++i) {
-            int r0 = ptr[2];
-            int g0 = ptr[1];
-            int b0 = ptr[0];
-            /**
-            convert observed rgb to srgb using best guess matrix.
-            the camera was shown black, red, green, blue screens.
-            a response matrix was constructed.
-            scaling r,g,b was a bit non-intuitive.
-            the matrix was inverted to get this color correction matrix.
-            which is good enough for now.
-            we still have too much red and blue for color balancing.
-            but i guess that's okay.
-            **/
-            int r1 = ( 57*r0 -   9*g0 -   0*b0)/100;
-            int g1 = (-35*r0 + 100*g0 -  13*b0)/100;
-            int b1 = (  2*r0 -  27*g0 +  68*b0)/100;
-            r1 = std::max(std::min(r1, 65535),0);
-            g1 = std::max(std::min(g1, 65535),0);
-            b1 = std::max(std::min(b1, 65535),0);
-            ptr[2] = r1;
-            ptr[1] = g1;
-            ptr[0] = b1;
-            ptr += 3;
-        }
-#endif
-    }
-
     void balanceColors() noexcept {
         int sz = img_->width_ * img_->height_;
         auto ptr = (agm::uint16 *) rgb16_.data;
@@ -914,7 +867,7 @@ public:
         }
     }
 
-    /** draw one circle around the center of the image. **/
+    /** draw a circle given center and radius. **/
     void drawCircle(
         double center_x,
         double center_y,
@@ -935,6 +888,15 @@ public:
         cx += std::round(dx);
         cy += std::round(dy);
 
+        drawCircle(cx, cy, radius);
+    }
+
+    /** draw a circle given center and radius. **/
+    void drawCircle(
+        int cx,
+        int cy,
+        int radius
+    ) noexcept {
         int x = 0;
         int y = radius;
         int r42 = 4 * radius * radius;
@@ -1251,6 +1213,13 @@ public:
         }
 
         LOG("Found a fake star!");
+    }
+
+    void showStars() noexcept {
+        if (find_stars_ == false) {
+            return;
+        }
+
         drawCircle(-0.485, +0.40, 0.05);
     }
 };
