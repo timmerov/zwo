@@ -57,8 +57,8 @@ public:
     cv::Mat rgb16_;
     cv::Mat black_;
     cv::Mat rgb32_;
-    cv::Mat cropped_;
-    cv::Mat gray_;
+    cv::Mat cropped16_;
+    cv::Mat gray16_;
     cv::Mat laplace_;
     cv::Mat rgb8_gamma_;
     double base_stddev_ = 0.0;
@@ -74,6 +74,9 @@ public:
     int display_height_ = 0;
     cv::Rect aoi_;
     bool logged_once_ = false;
+
+    int star_x_ = 0;
+    int star_y_ = 0;
 
     WindowThread(
         ImageDoubleBuffer *image_double_buffer,
@@ -249,7 +252,7 @@ public:
                 input_.push_back(key);
                 if (key == '\n') {
                     std::lock_guard<std::mutex> lock(settings_->mutex_);
-                    settings_->input_ = std::move(input_);
+                    settings_->input_ += std::move(input_);
                 }
             }
 
@@ -310,9 +313,9 @@ public:
         int ht = img_->height_;
         auto wd_range = cv::Range(wd/4, wd*3/4);
         auto ht_range = cv::Range(ht/4, ht*3/4);
-        cropped_ = rgb16_(ht_range, wd_range);
-        cv::cvtColor(cropped_, gray_, cv::COLOR_RGB2GRAY);
-        cv::Laplacian(gray_, laplace_, CV_64F, 3, 1, 0);
+        cropped16_ = rgb16_(ht_range, wd_range);
+        cv::cvtColor(cropped16_, gray16_, cv::COLOR_RGB2GRAY);
+        cv::Laplacian(gray16_, laplace_, CV_64F, 3, 1, 0);
         cv::Scalar mean;
         cv::Scalar stddev;
         cv::meanStdDev(laplace_, mean, stddev);
@@ -1212,6 +1215,117 @@ public:
             return;
         }
 
+        /** convert to grayscale. **/
+        cv::cvtColor(rgb16_, gray16_, cv::COLOR_RGB2GRAY);
+
+        /** get the mean and standard deviation of the image. **/
+        cv::Scalar mean;
+        cv::Scalar stddev;
+        cv::meanStdDev(gray16_, mean, stddev);
+        int threshold = std::round(mean[0] + 2 * stddev[0]);
+        LOG("grayscale image mean="<<mean[0]<<" stddev="<<stddev[0]<< " threshold="<<threshold);
+
+        /** blech i don't like this method. **/
+#if 0
+        /** allocate and clear the max values of each row and column. **/
+        int wd = img_->width_;
+        int ht = img_->height_;
+        row_maxes_.resize(ht);
+        col_maxes_.resize(wd);
+        for (int row = 0; row < ht; ++row) {
+            row_maxes_[row] = 0;
+        }
+        for (int col = 0; col < wd; ++col) {
+            col_maxes_[col] = 0;
+        }
+
+        /** set the max values for each row and column. **/
+        auto pgray = (agm::uint16 *) gray16_.data;
+        for (int row = 0; row < ht; ++row) {
+            int row_max = 0;
+            for (int col = 0; col < wd; ++col) {
+                int px = *pgray++;
+                int col_max = col_maxes_[col];
+                col_max = std::max(col_max, px);
+                row_max = std::max(row_max, px);
+                col_maxes_[col] = col_max;
+            }
+            row_maxes_[row] = row_max;
+        }
+
+        /** find the x,y of the brightest pixel. **/
+        int img_max = 0;
+        for (int row = 0; row < ht; ++row) {
+            int row_max = row_maxes_[row];
+            img_max = std::max(img_max, row_max);
+        }
+        int x = 0;
+        int y = 0;
+        pgray = (agm::uint16 *) gray16_.data;
+        for (int row = 0; row < ht; ++row) {
+            int row_max = row_maxes_[row];
+            if (row_max != img_max) {
+                continue;
+            }
+            for (int col = 0; col < wd; ++col) {
+                int col_max = col_maxes_[col];
+                if (col_max != img_max) {
+                    continue;
+                }
+
+                int idx = col + row * wd;
+                int px = pgray[idx];
+                if (px != img_max) {
+                    continue;
+                }
+
+                /** save the coordinates and finish. **/
+                x = col;
+                y = row;
+                col = wd;
+                row = ht;
+            }
+        }
+        LOG("brightest pixel "<<img_max<<" found at x,y = "<<x<<","<<y);
+
+        star_x_ = x;
+        star_y_ = y;
+
+        /** blast it. **/
+        auto pimg = (agm::uint16 *) rgb16_.data;
+        for (int row = 0; row < ht; ++row) {
+            int row_max = row_maxes_[row];
+            for (int col = 0; col < wd; ++col) {
+                int col_max = col_maxes_[col];
+                int mx = std::max(row_max, col_max);
+                pimg[0] = mx;
+                pimg[1] = mx;
+                pimg[2] = mx;
+                pimg += 3;
+            }
+        }
+#endif
+
+#if 0
+        /** apply threshold. **/
+        int sz = wd * ht;
+        auto pgray = (agm::uint16 *) gray16_.data;
+        auto pimg = (agm::uint16 *) rgb16_.data;
+        for (int i = 0; i < sz; ++i) {
+            int g = *pgray++;
+            if (g < threshold) {
+                pimg[0] = 0;
+                pimg[1] = 0;
+                pimg[2] = 0;
+            } else {
+                pimg[0] = 65535;
+                pimg[1] = 65535;
+                pimg[2] = 65535;
+            }
+            pimg += 3;
+        }
+#endif
+
         LOG("Found a fake star!");
     }
 
@@ -1220,7 +1334,7 @@ public:
             return;
         }
 
-        drawCircle(-0.485, +0.40, 0.05);
+        drawCircle(star_x_, star_y_, 15);
     }
 };
 }
