@@ -78,6 +78,7 @@ public:
 
     int star_x_ = 0;
     int star_y_ = 0;
+    int star_r_ = 0;
 
     WindowThread(
         ImageDoubleBuffer *image_double_buffer,
@@ -1224,89 +1225,59 @@ public:
         cv::Scalar stddev;
         cv::meanStdDev(gray16_, mean, stddev);
         int threshold = std::round(mean[0] + 2.0 * stddev[0]);
-        LOG("grayscale image mean="<<mean[0]<<" stddev="<<stddev[0]<< " threshold="<<threshold);
+        //LOG("grayscale image mean="<<mean[0]<<" stddev="<<stddev[0]<< " threshold="<<threshold);
 
         /** find the maximum. **/
-        double min_val = 0;
-        double max_val = 0;
-        cv::Point min_loc;
-        cv::Point max_loc;
-        cv::minMaxLoc(gray16_, &min_val, &max_val, &min_loc, &max_loc );
-        int mx = std::round(max_val);
-        int range = mx - threshold;
-        LOG("max="<<mx<<" range="<<range);
-
-        /** convert to 8 bit. **/
+        int max_val = 0;
+        int max_x = 0;
+        int max_y = 0;
         int wd = img_->width_;
         int ht = img_->height_;
-        int sz = wd * ht;
-        gray8_ = cv::Mat(ht, wd, CV_8UC1);
         auto pgray16 = (agm::uint16 *) gray16_.data;
-        auto pgray8 = (agm::uint8 *) gray8_.data;
-        for (int i = 0; i < sz; ++i) {
-            int px = *pgray16++;
-            px = (px - threshold) * 255 / range;
-            px = std::max(0, px);
-            px = std::min(px, 255);
-            *pgray8++ = px;
+        for (int y = 0; y < ht; ++y) {
+            for (int x = 0; x < wd; ++x) {
+                int px = *pgray16++;
+                if (px > max_val) {
+                    max_val = px;
+                    max_x = x;
+                    max_y = y;
+                }
+            }
+        }
+        //LOG("max="<<max_val<<" x,y="<<max_x<<","<<max_y);
+
+        /**
+        the plan:
+        find the brightest pixel.
+        assume that's the center of a gaussian shaped blob.
+        estimate the half-height to be half the distance between the peak and the threshold.
+        expand a square around the pixel.
+        count the number of pixels in the square greater than the half-height.
+        if the number of bright pixels is greater than 28% of the area of the square...
+        then expand the square and repeat.
+        this magic number is the point where the radius is 2 times the standard deviation of the gaussian.
+        which means we can assume 98% of star pixels are inside the square.
+        compute the centroid to find the center of the blob.
+        **/
+        int half_height = (max_val + threshold + 1) / 2;
+        int bright_pixels = 1;
+        int square_radius = 1;
+        for (; square_radius < 30; ++square_radius) {
+            bright_pixels += countBrightPixels(max_x, max_y, square_radius, half_height);
+            int square_width = square_radius + 1 + square_radius;
+            int area = square_width * square_width;
+            if (100 * bright_pixels <= 28 * area) {
+                break;
+            }
         }
 
-        /** create cv blob detector. **/
-        cv::SimpleBlobDetector::Params params;
-        LOG("params.blobColor="<<(int)params.blobColor);
-        LOG("params.filterByArea="<<params.filterByArea);
-        LOG("params.filterByCircularity="<<params.filterByCircularity);
-        LOG("params.filterByColor="<<params.filterByColor);
-        LOG("params.filterByConvexity="<<params.filterByConvexity);
-        LOG("params.filterByInertia="<<params.filterByInertia);
-        LOG("params.maxArea="<<params.maxArea);
-        LOG("params.maxCircularity="<<params.maxCircularity);
-        LOG("params.maxConvexity="<<params.maxConvexity);
-        LOG("params.maxInertiaRatio="<<params.maxInertiaRatio);
-        LOG("params.maxThreshold="<<params.maxThreshold);
-        LOG("params.minArea="<<params.minArea);
-        LOG("params.minCircularity="<<params.minCircularity);
-        LOG("params.minConvexity="<<params.minConvexity);
-        LOG("params.minDistBetweenBlobs="<<params.minDistBetweenBlobs);
-        LOG("params.minInertiaRatio="<<params.minInertiaRatio);
-        LOG("params.minRepeatability="<<params.minRepeatability);
-        LOG("params.minThreshold="<<params.minThreshold);
-        LOG("params.thresholdStep="<<params.thresholdStep);
-        //params.minThreshold = 44;
-        params.filterByArea = true;
-        params.minArea = 8;
-        params.maxArea = 10000;
-        params.filterByCircularity = true;
-        params.minCircularity = 0.1;
-        params.maxCircularity = 1e38;
-        params.filterByColor = false;
-        params.blobColor = 255*7/10;
-        params.filterByConvexity = false;
-        params.minConvexity = 0.87;
-        params.maxConvexity = 1e38;
-        params.filterByInertia = true;
-        params.minInertiaRatio = 0.01;
-        params.maxInertiaRatio = 1e38;
-        params.minThreshold = 0;
-        params.maxThreshold = 255;
-        params.thresholdStep = 5;
-        params.minDistBetweenBlobs = 10;
-        params.minRepeatability = 3;
-        auto detector = cv::SimpleBlobDetector::create(params);
-
-        /** find blobs. **/
-        std::vector<cv::KeyPoint> blobs;
-        detector->detect(gray8_, blobs);
-        int nblobs = blobs.size();
-        LOG("found "<<nblobs<<" blobs.");
-
-        /** draw the output. **/
-        cv::Mat output;
-        cv::drawKeypoints(gray8_, blobs, output, cv::Scalar(0, 0, 255), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
-        LOG("output depth="<<output.elemSize()<<" depth1="<<output.elemSize1());
+        /** save the star. **/
+        star_x_ = max_x;
+        star_y_ = max_y;
+        star_r_ = square_radius;
+        LOG("Found a star at "<<max_x<<","<<max_y<<" size="<<square_radius<<".");
 
         /** show it **/
-        output.convertTo(rgb16_, CV_16U, 257);
 #if 0
         pgray8 = (agm::uint8 *) gray8_.data;
         auto pimg = (agm::uint16 *) rgb16_.data;
@@ -1319,8 +1290,52 @@ public:
             pimg += 3;
         }
 #endif
+    }
 
-        LOG("Found a fake star!");
+    int countBrightPixels(
+        int cx,
+        int cy,
+        int r,
+        int hh
+    ) noexcept {
+        int cnt = 0;
+        int wd = img_->width_;
+        //int ht = img_->height_;
+        auto pgray16 = (agm::uint16 *) gray16_.data;
+
+        int y = cy - r;
+        for (int x = cx - r; x <= cx + r; ++x) {
+            int px = pgray16[y*wd + x];
+            if (px >= hh) {
+                ++cnt;
+            }
+        }
+
+        y = cy + r;
+        for (int x = cx - r; x <= cx + r; ++x) {
+            int px = pgray16[y*wd + x];
+            if (px >= hh) {
+                ++cnt;
+            }
+        }
+
+        int x = cx - r;
+        for (int y = cy - r + 1; y <= cy + r - 1; ++y) {
+            int px = pgray16[y*wd + x];
+            if (px >= hh) {
+                ++cnt;
+            }
+        }
+
+        x = cx + r;
+        for (int y = cy - r + 1; y <= cy + r - 1; ++y) {
+            int px = pgray16[y*wd + x];
+            if (px >= hh) {
+                ++cnt;
+            }
+        }
+
+        return cnt;
     }
 
     void showStars() noexcept {
@@ -1328,7 +1343,7 @@ public:
             return;
         }
 
-        drawCircle(star_x_, star_y_, 15);
+        drawCircle(star_x_, star_y_, star_r_+1);
     }
 };
 }
