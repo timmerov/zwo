@@ -21,6 +21,18 @@ display images in a window.
 
 
 namespace {
+
+class StarPosition {
+public:
+    double x_;
+    double y_;
+    int r_;
+    double sum_x_;
+    double sum_y_;
+    double sum_;
+};
+typedef std::vector<StarPosition> StarPositions;
+
 class WindowThread : public agm::Thread {
 public:
     /** share data with the capture thread. **/
@@ -75,10 +87,7 @@ public:
     int display_height_ = 0;
     cv::Rect aoi_;
     bool logged_once_ = false;
-
-    int star_x_ = 0;
-    int star_y_ = 0;
-    int star_r_ = 0;
+    StarPositions star_positions_;
 
     WindowThread(
         ImageDoubleBuffer *image_double_buffer,
@@ -1217,79 +1226,117 @@ public:
             return;
         }
 
+        /** configuration constants. **/
+        static const double kThresholdStdDevs = 2.0;
+        static const int kMaxRadius = 30;
+        static const int kMaxCount = 10;
+        static const int kAreaThreshold = 28;
+        static const int kMinBrightCount = 5;
+
+        int wd = img_->width_;
+        int ht = img_->height_;
+
         /** convert to grayscale. **/
         cv::cvtColor(rgb16_, gray16_, cv::COLOR_RGB2GRAY);
 
-        /** get the mean and standard deviation of the image. **/
+        /** get the mean and standard deviation of the grayscale image. **/
         cv::Scalar mean;
         cv::Scalar stddev;
         cv::meanStdDev(gray16_, mean, stddev);
-        int threshold = std::round(mean[0] + 2.0 * stddev[0]);
+        int baseline = std::round(mean[0]);
+        int threshold = std::round(mean[0] + kThresholdStdDevs * stddev[0]);
         //LOG("grayscale image mean="<<mean[0]<<" stddev="<<stddev[0]<< " threshold="<<threshold);
 
-        /** find the maximum. **/
-        int max_val = 0;
-        int max_x = 0;
-        int max_y = 0;
-        int wd = img_->width_;
-        int ht = img_->height_;
-        auto pgray16 = (agm::uint16 *) gray16_.data;
-        for (int y = 0; y < ht; ++y) {
-            for (int x = 0; x < wd; ++x) {
-                int px = *pgray16++;
-                if (px > max_val) {
-                    max_val = px;
-                    max_x = x;
-                    max_y = y;
+        for (int nstars = 0; nstars < kMaxCount; ++nstars) {
+            /** find the maximum. **/
+            int max_val = 0;
+            int max_x = 0;
+            int max_y = 0;
+            auto pgray16_row = (agm::uint16 *) gray16_.data;
+            pgray16_row += kMaxRadius * wd + kMaxRadius;
+            for (int y = kMaxRadius; y < ht - kMaxRadius; ++y) {
+                auto pgray16 = pgray16_row;
+                for (int x = kMaxRadius; x < wd - kMaxRadius; ++x) {
+                    int px = *pgray16++;
+                    if (px > max_val) {
+                        max_val = px;
+                        max_x = x;
+                        max_y = y;
+                    }
                 }
+                pgray16_row += wd;
             }
-        }
-        //LOG("max="<<max_val<<" x,y="<<max_x<<","<<max_y);
+            //LOG("max="<<max_val<<" x,y="<<max_x<<","<<max_y);
 
-        /**
-        the plan:
-        find the brightest pixel.
-        assume that's the center of a gaussian shaped blob.
-        estimate the half-height to be half the distance between the peak and the threshold.
-        expand a square around the pixel.
-        count the number of pixels in the square greater than the half-height.
-        if the number of bright pixels is greater than 28% of the area of the square...
-        then expand the square and repeat.
-        this magic number is the point where the radius is 2 times the standard deviation of the gaussian.
-        which means we can assume 98% of star pixels are inside the square.
-        compute the centroid to find the center of the blob.
-        **/
-        int half_height = (max_val + threshold + 1) / 2;
-        int bright_pixels = 1;
-        int square_radius = 1;
-        for (; square_radius < 30; ++square_radius) {
-            bright_pixels += countBrightPixels(max_x, max_y, square_radius, half_height);
-            int square_width = square_radius + 1 + square_radius;
-            int area = square_width * square_width;
-            if (100 * bright_pixels <= 28 * area) {
+            /** stop when it's below the threshold. **/
+            if (max_val <= threshold) {
+                LOG("Remaining star field is below threshold.");
                 break;
             }
+
+            /**
+            the plan:
+            find the brightest pixel.
+            assume that's the center of a gaussian shaped blob.
+            estimate the half-height to be half the distance between the peak and the threshold.
+            expand a square around the pixel.
+            count the number of pixels in the square greater than the half-height.
+            if the number of bright pixels is greater than 28% of the area of the square...
+            then expand the square and repeat.
+            this magic number is the point where the radius is 2 times the standard deviation of the gaussian.
+            which means we can assume 98% of star pixels are inside the square.
+            compute the centroid to find the center of the blob.
+
+            why 28%
+            start with a 1d gaussian distribution with mean 0 and standard deviation 0.25.
+            scale height to be 1.0.
+            rotate it around the origin.
+            two standard deviations fits in a unit square.
+            half height is at sigma 1.77.
+            radius is 1.77 * 0.25 = 0.29.
+            area of a circle with radius 0.29 is 0.28.
+            which is 28% of the area of the square.
+            **/
+            int half_height = (max_val + baseline + 1) / 2;
+            int bright_pixels = 1;
+            int square_radius = 1;
+            for (; square_radius < kMaxRadius; ++square_radius) {
+                bright_pixels += countBrightPixels(max_x, max_y, square_radius, half_height);
+                int square_width = square_radius + 1 + square_radius;
+                int area = square_width * square_width;
+                if (100 * bright_pixels <= kAreaThreshold * area) {
+                    break;
+                }
+            }
+
+            /** ignore micro blobs. **/
+            if (bright_pixels >= kMinBrightCount) {
+                /** compute centroid. **/
+                StarPosition star;
+                blobCentroid(star, max_x, max_y, square_radius);
+
+                /** save the star. **/
+                star_positions_.push_back(star);
+                LOG("Found a star at "<<max_x<<","<<max_y<<" size="<<square_radius<<".");
+            } else {
+                LOG("Skipped small blob at "<<max_x<<","<<max_y);
+            }
+
+            /** erase the blob. **/
+            eraseBlob(max_x, max_y, square_radius);
         }
 
-        /** save the star. **/
-        star_x_ = max_x;
-        star_y_ = max_y;
-        star_r_ = square_radius;
-        LOG("Found a star at "<<max_x<<","<<max_y<<" size="<<square_radius<<".");
-
         /** show it **/
-#if 0
-        pgray8 = (agm::uint8 *) gray8_.data;
+        auto pgray16 = (agm::uint16 *) gray16_.data;
         auto pimg = (agm::uint16 *) rgb16_.data;
+        int sz = wd * ht;
         for (int i = 0; i < sz; ++i) {
-            int px = *pgray8++;
-            px *= 257;
+            int px = *pgray16++;
             pimg[0] = px;
             pimg[1] = px;
             pimg[2] = px;
             pimg += 3;
         }
-#endif
     }
 
     int countBrightPixels(
@@ -1338,12 +1385,62 @@ public:
         return cnt;
     }
 
+    void blobCentroid(
+        StarPosition& star,
+        int cx,
+        int cy,
+        int r
+    ) noexcept {
+        int x0 = cx - r;
+        int x1 = cx + r;
+        int y0 = cy - r;
+        int y1 = cy + r;
+        int wd = img_->width_;
+        star.sum_x_ = 0.0;
+        star.sum_y_ = 0.0;
+        star.sum_ = 0.0;
+        auto pgray16 = (agm::uint16 *) gray16_.data;
+        for (int y = y0; y <= y1; ++y) {
+            for (int x = x0; x <= x1; ++x) {
+                double px = pgray16[y*wd + x];
+                star.sum_x_ += double(x) * px;
+                star.sum_y_ += double(y) * px;
+                star.sum_ += px;
+            }
+        }
+        star.x_ = star.sum_x_ / star.sum_;
+        star.y_ = star.sum_y_ / star.sum_;
+        star.r_ = r;
+    }
+
+    void eraseBlob(
+        int cx,
+        int cy,
+        int r
+    ) noexcept {
+        int x0 = cx - r;
+        int x1 = cx + r;
+        int y0 = cy - r;
+        int y1 = cy + r;
+        int wd = img_->width_;
+        auto pgray16 = (agm::uint16 *) gray16_.data;
+        for (int y = y0; y <= y1; ++y) {
+            for (int x = x0; x <= x1; ++x) {
+                pgray16[y*wd + x] = 0;
+            }
+        }
+    }
+
     void showStars() noexcept {
         if (find_stars_ == false) {
             return;
         }
 
-        drawCircle(star_x_, star_y_, star_r_+1);
+        for (auto&& star : star_positions_) {
+            int x = std::round(star.x_);
+            int y = std::round(star.y_);
+            drawCircle(x, y, star.r_);
+        }
     }
 };
 }
