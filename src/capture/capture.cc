@@ -238,20 +238,17 @@ public:
         int wd = img.cols;
         int ht = img.rows;
         int sz = img.elemSize1();
-        LOG("img is "<<wd<<"x"<<ht<<" sz="<<sz);
-
         cv::Mat img16;
         if (sz == 2) {
             img16 = img;
         } else {
             img.convertTo(img16, CV_16UC3, 257);
         }
-        LOG("img16 is "<<img16.cols<<"x"<<img16.rows<<" bytes="<<img16.elemSize1());
-
-        cv::Mat bayer(ht, wd, CV_16UC1);
-        LOG("bayer is "<<bayer.cols<<"x"<<bayer.rows<<" bytes="<<bayer.elemSize1());
+        int bits = 8 * sz;
+        LOG("Image is "<<wd<<"x"<<ht<<" by "<<bits<<" bits.");
 
         /** convert BGR to bayer RGGB format. **/
+        cv::Mat bayer(ht, wd, CV_16UC1);
         auto pimg = (agm::uint16 *) img16.data;
         auto pbayer = (agm::uint16 * ) bayer.data;
         int iwd = wd * 3;

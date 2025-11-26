@@ -59,6 +59,7 @@ public:
     cv::Mat rgb32_;
     cv::Mat cropped16_;
     cv::Mat gray16_;
+    cv::Mat gray8_;
     cv::Mat laplace_;
     cv::Mat rgb8_gamma_;
     double base_stddev_ = 0.0;
@@ -1222,106 +1223,99 @@ public:
         cv::Scalar mean;
         cv::Scalar stddev;
         cv::meanStdDev(gray16_, mean, stddev);
-        int threshold = std::round(mean[0] + 2 * stddev[0]);
+        int threshold = std::round(mean[0] + 2.0 * stddev[0]);
         LOG("grayscale image mean="<<mean[0]<<" stddev="<<stddev[0]<< " threshold="<<threshold);
 
-        /** blech i don't like this method. **/
-#if 0
-        /** allocate and clear the max values of each row and column. **/
+        /** find the maximum. **/
+        double min_val = 0;
+        double max_val = 0;
+        cv::Point min_loc;
+        cv::Point max_loc;
+        cv::minMaxLoc(gray16_, &min_val, &max_val, &min_loc, &max_loc );
+        int mx = std::round(max_val);
+        int range = mx - threshold;
+        LOG("max="<<mx<<" range="<<range);
+
+        /** convert to 8 bit. **/
         int wd = img_->width_;
         int ht = img_->height_;
-        row_maxes_.resize(ht);
-        col_maxes_.resize(wd);
-        for (int row = 0; row < ht; ++row) {
-            row_maxes_[row] = 0;
-        }
-        for (int col = 0; col < wd; ++col) {
-            col_maxes_[col] = 0;
-        }
-
-        /** set the max values for each row and column. **/
-        auto pgray = (agm::uint16 *) gray16_.data;
-        for (int row = 0; row < ht; ++row) {
-            int row_max = 0;
-            for (int col = 0; col < wd; ++col) {
-                int px = *pgray++;
-                int col_max = col_maxes_[col];
-                col_max = std::max(col_max, px);
-                row_max = std::max(row_max, px);
-                col_maxes_[col] = col_max;
-            }
-            row_maxes_[row] = row_max;
-        }
-
-        /** find the x,y of the brightest pixel. **/
-        int img_max = 0;
-        for (int row = 0; row < ht; ++row) {
-            int row_max = row_maxes_[row];
-            img_max = std::max(img_max, row_max);
-        }
-        int x = 0;
-        int y = 0;
-        pgray = (agm::uint16 *) gray16_.data;
-        for (int row = 0; row < ht; ++row) {
-            int row_max = row_maxes_[row];
-            if (row_max != img_max) {
-                continue;
-            }
-            for (int col = 0; col < wd; ++col) {
-                int col_max = col_maxes_[col];
-                if (col_max != img_max) {
-                    continue;
-                }
-
-                int idx = col + row * wd;
-                int px = pgray[idx];
-                if (px != img_max) {
-                    continue;
-                }
-
-                /** save the coordinates and finish. **/
-                x = col;
-                y = row;
-                col = wd;
-                row = ht;
-            }
-        }
-        LOG("brightest pixel "<<img_max<<" found at x,y = "<<x<<","<<y);
-
-        star_x_ = x;
-        star_y_ = y;
-
-        /** blast it. **/
-        auto pimg = (agm::uint16 *) rgb16_.data;
-        for (int row = 0; row < ht; ++row) {
-            int row_max = row_maxes_[row];
-            for (int col = 0; col < wd; ++col) {
-                int col_max = col_maxes_[col];
-                int mx = std::max(row_max, col_max);
-                pimg[0] = mx;
-                pimg[1] = mx;
-                pimg[2] = mx;
-                pimg += 3;
-            }
-        }
-#endif
-
-#if 0
-        /** apply threshold. **/
         int sz = wd * ht;
-        auto pgray = (agm::uint16 *) gray16_.data;
+        gray8_ = cv::Mat(ht, wd, CV_8UC1);
+        auto pgray16 = (agm::uint16 *) gray16_.data;
+        auto pgray8 = (agm::uint8 *) gray8_.data;
+        for (int i = 0; i < sz; ++i) {
+            int px = *pgray16++;
+            px = (px - threshold) * 255 / range;
+            px = std::max(0, px);
+            px = std::min(px, 255);
+            *pgray8++ = px;
+        }
+
+        /** create cv blob detector. **/
+        cv::SimpleBlobDetector::Params params;
+        LOG("params.blobColor="<<(int)params.blobColor);
+        LOG("params.filterByArea="<<params.filterByArea);
+        LOG("params.filterByCircularity="<<params.filterByCircularity);
+        LOG("params.filterByColor="<<params.filterByColor);
+        LOG("params.filterByConvexity="<<params.filterByConvexity);
+        LOG("params.filterByInertia="<<params.filterByInertia);
+        LOG("params.maxArea="<<params.maxArea);
+        LOG("params.maxCircularity="<<params.maxCircularity);
+        LOG("params.maxConvexity="<<params.maxConvexity);
+        LOG("params.maxInertiaRatio="<<params.maxInertiaRatio);
+        LOG("params.maxThreshold="<<params.maxThreshold);
+        LOG("params.minArea="<<params.minArea);
+        LOG("params.minCircularity="<<params.minCircularity);
+        LOG("params.minConvexity="<<params.minConvexity);
+        LOG("params.minDistBetweenBlobs="<<params.minDistBetweenBlobs);
+        LOG("params.minInertiaRatio="<<params.minInertiaRatio);
+        LOG("params.minRepeatability="<<params.minRepeatability);
+        LOG("params.minThreshold="<<params.minThreshold);
+        LOG("params.thresholdStep="<<params.thresholdStep);
+        //params.minThreshold = 44;
+        params.filterByArea = true;
+        params.minArea = 8;
+        params.maxArea = 10000;
+        params.filterByCircularity = true;
+        params.minCircularity = 0.1;
+        params.maxCircularity = 1e38;
+        params.filterByColor = false;
+        params.blobColor = 255*7/10;
+        params.filterByConvexity = false;
+        params.minConvexity = 0.87;
+        params.maxConvexity = 1e38;
+        params.filterByInertia = true;
+        params.minInertiaRatio = 0.01;
+        params.maxInertiaRatio = 1e38;
+        params.minThreshold = 0;
+        params.maxThreshold = 255;
+        params.thresholdStep = 5;
+        params.minDistBetweenBlobs = 10;
+        params.minRepeatability = 3;
+        auto detector = cv::SimpleBlobDetector::create(params);
+
+        /** find blobs. **/
+        std::vector<cv::KeyPoint> blobs;
+        detector->detect(gray8_, blobs);
+        int nblobs = blobs.size();
+        LOG("found "<<nblobs<<" blobs.");
+
+        /** draw the output. **/
+        cv::Mat output;
+        cv::drawKeypoints(gray8_, blobs, output, cv::Scalar(0, 0, 255), cv::DrawMatchesFlags::DRAW_RICH_KEYPOINTS);
+        LOG("output depth="<<output.elemSize()<<" depth1="<<output.elemSize1());
+
+        /** show it **/
+        output.convertTo(rgb16_, CV_16U, 257);
+#if 0
+        pgray8 = (agm::uint8 *) gray8_.data;
         auto pimg = (agm::uint16 *) rgb16_.data;
         for (int i = 0; i < sz; ++i) {
-            int g = *pgray++;
-            if (g < threshold) {
-                pimg[0] = 0;
-                pimg[1] = 0;
-                pimg[2] = 0;
-            } else {
-                pimg[0] = 65535;
-                pimg[1] = 65535;
-                pimg[2] = 65535;
-            }
+            int px = *pgray8++;
+            px *= 257;
+            pimg[0] = px;
+            pimg[1] = px;
+            pimg[2] = px;
             pimg += 3;
         }
 #endif
