@@ -1224,6 +1224,47 @@ public:
         return (int) x;
     }
 
+    /**
+    find stars.
+    convert to flat grayscale where rgb are weighted equally.
+    don't use opencv cvtColor.
+    subtract the background using the local median.
+    estimate noise.
+    stars are brighter than the noise.
+    we assume the stars are a symmetric normal distribution.
+
+    find the brightest pixel.
+    bright pixels are at least half as bright as the brightest pixel.
+    find a bounding box.
+    compute the centroid.
+    we want to include 99% of the actual star pixels.
+    we can afford to include background noise pixels.
+    we assume noise is small and will cancel out.
+    we expand the bounding box so 13% to 28% of the pixels int he box are bright.
+    at that point the edges of the box are 2-3 sigma from the center.
+
+    erase every pixel in the box.
+    repeat.
+
+    stars need to have a minimum number of bright pixels.
+    the brightest pixel needs to be above the noise.
+
+    some issues with this algorithm:
+
+        paramaters feel ad hoc.
+
+        sometimes a blob will be detected that touches or overlaps an existing star.
+        one possibility is to ignore it.
+        another possibility is to merge them.
+        the bounding box should include the bounding box of both.
+        which could be problematic.
+        or not.
+        which could also be problematic.
+
+        sometimes we fail to find an obvious star.
+        sometimes we get a lot of false positives.
+        needs work.
+    **/
     void findStars() noexcept {
         if (find_stars_ == false) {
             return;
@@ -1233,18 +1274,18 @@ public:
         star_positions_.resize(0);
 
         /** configuration constants. **/
-        #if 0
         static const double kThresholdStdDevs = 2.0;
         static const int kMaxRadius = 30;
-        static const int kMaxCount = 12;  //8
-        static const int kAreaThreshold = 13;//28;
+        static const int kMaxCount = 12;
+        static const int kAreaThreshold = 13;
         static const int kMinBrightCount = 5;
-        #endif
 
         /** need 16 bit grayscale. **/
         int wd = img_->width_;
         int ht = img_->height_;
-        gray16_ = cv::Mat(ht, wd, CV_16UC1);
+        if (gray16_.rows == 0) {
+            gray16_ = cv::Mat(ht, wd, CV_16UC1);
+        }
 
         /** convert to grayscale. **/
         int sz = wd * ht;
@@ -1261,36 +1302,24 @@ public:
 
         /** find median. **/
         findMedianGrays();
-        /** show it. **/
-        auto pmedian = (agm::uint16 *) median16_.data;
-        pimg = (agm::uint16 *) rgb16_.data;
+
+        /** subtract the median. **/
+        auto pmedian16 = (agm::uint16 *) median16_.data;
+        pgray16 = (agm::uint16 *) gray16_.data;
         for (int i = 0; i < sz; ++i) {
-            int px = *pmedian++;
-            pimg[0] = px;
-            pimg[1] = px;
-            pimg[2] = px;
-            pimg += 3;
+            int med = *pmedian16++;
+            int px = *pgray16;
+            px -= med;
+            px = std::max(0, px);
+            *pgray16++ = px;
         }
 
-#if 0
         /** get the mean and standard deviation of the grayscale image. **/
         cv::Scalar mean;
         cv::Scalar stddev;
         cv::meanStdDev(gray16_, mean, stddev);
-        int baseline = std::round(mean[0]);
         int threshold = std::round(mean[0] + kThresholdStdDevs * stddev[0]);
         LOG("grayscale image mean="<<mean[0]<<" stddev="<<stddev[0]<< " threshold="<<threshold);
-
-        /** subtract the baseline. **/
-        pgray16 = (agm::uint16 *) gray16_.data;
-        for (int i = 0; i < sz; ++i) {
-            int px = *pgray16;
-            px -= baseline;
-            px = std::max(0, px);
-            *pgray16++ = px;
-        }
-        threshold -= baseline;
-        baseline = 0;
 
         for (int nstars = 0; nstars < kMaxCount; ++nstars) {
             /** find the maximum. **/
@@ -1319,29 +1348,10 @@ public:
             }
 
             /**
-            the plan:
             find the brightest pixel.
-            assume that's the center of a gaussian shaped blob.
-            estimate the half-height to be half the distance between the peak and the threshold.
-            expand a square around the pixel.
-            count the number of pixels in the square greater than the half-height.
-            if the number of bright pixels is greater than 28% of the area of the square...
-            then expand the square and repeat.
-            this magic number is the point where the radius is 2 times the standard deviation of the gaussian.
-            which means we can assume 98% of star pixels are inside the square.
-            compute the centroid to find the center of the blob.
-
-            why 28%
-            start with a 1d gaussian distribution with mean 0 and standard deviation 0.25.
-            scale height to be 1.0.
-            rotate it around the origin.
-            two standard deviations fits in a unit square.
-            half height is at sigma 1.77.
-            radius is 1.77 * 0.25 = 0.29.
-            area of a circle with radius 0.29 is 0.28.
-            which is 28% of the area of the square.
+            and the box containing the bright pixels around it.
             **/
-            int half_height = (max_val + baseline + 1) / 2;
+            int half_height = (max_val + 1) / 2;
             int bright_pixels = 1;
             int square_radius = 1;
             int area = 1;
@@ -1370,10 +1380,9 @@ public:
             /** erase the blob. **/
             eraseBlob(max_x, max_y, square_radius);
         }
-#endif
 
-        /** show it **/
 #if 0
+        /** show it **/
         pgray16 = (agm::uint16 *) gray16_.data;
         pimg = (agm::uint16 *) rgb16_.data;
         for (int i = 0; i < sz; ++i) {
