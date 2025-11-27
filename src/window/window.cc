@@ -88,6 +88,8 @@ public:
     cv::Rect aoi_;
     bool logged_once_ = false;
     StarPositions star_positions_;
+    cv::Mat median16_;
+    std::vector<int> median_hist_;
 
     WindowThread(
         ImageDoubleBuffer *image_double_buffer,
@@ -325,6 +327,7 @@ public:
         auto wd_range = cv::Range(wd/4, wd*3/4);
         auto ht_range = cv::Range(ht/4, ht*3/4);
         cropped16_ = rgb16_(ht_range, wd_range);
+        /** =tsc= todo this converts by luminance. **/
         cv::cvtColor(cropped16_, gray16_, cv::COLOR_RGB2GRAY);
         cv::Laplacian(gray16_, laplace_, CV_64F, 3, 1, 0);
         cv::Scalar mean;
@@ -1226,12 +1229,17 @@ public:
             return;
         }
 
+        /** find new stars. **/
+        star_positions_.resize(0);
+
         /** configuration constants. **/
+        #if 0
         static const double kThresholdStdDevs = 2.0;
         static const int kMaxRadius = 30;
         static const int kMaxCount = 12;  //8
         static const int kAreaThreshold = 13;//28;
         static const int kMinBrightCount = 5;
+        #endif
 
         /** need 16 bit grayscale. **/
         int wd = img_->width_;
@@ -1251,6 +1259,20 @@ public:
             pimg += 3;
         }
 
+        /** find median. **/
+        findMedianGrays();
+        /** show it. **/
+        auto pmedian = (agm::uint16 *) median16_.data;
+        pimg = (agm::uint16 *) rgb16_.data;
+        for (int i = 0; i < sz; ++i) {
+            int px = *pmedian++;
+            pimg[0] = px;
+            pimg[1] = px;
+            pimg[2] = px;
+            pimg += 3;
+        }
+
+#if 0
         /** get the mean and standard deviation of the grayscale image. **/
         cv::Scalar mean;
         cv::Scalar stddev;
@@ -1348,6 +1370,7 @@ public:
             /** erase the blob. **/
             eraseBlob(max_x, max_y, square_radius);
         }
+#endif
 
         /** show it **/
 #if 0
@@ -1464,6 +1487,198 @@ public:
             int x = std::round(star.x_);
             int y = std::round(star.y_);
             drawCircle(x, y, star.r_);
+        }
+    }
+
+    void findMedianGrays() noexcept {
+        if (median_hist_.size() == 0) {
+            median_hist_.resize(65536);
+        }
+
+        static const int kMedianRadius = 40;
+        static const int kMedianWidth = kMedianRadius + 1 + kMedianRadius;
+        static const int kMedianSize = kMedianWidth * kMedianWidth;
+        static const int kMedianHalfSize = kMedianSize / 2;
+
+        int wd = img_->width_;
+        int ht = img_->height_;
+        if (median16_.rows == 0) {
+            median16_ = cv::Mat(ht, wd, CV_16UC1);
+        }
+        auto pgray16 = (agm::uint16 *) gray16_.data;
+        auto pmedian16 = (agm::uint16 *) median16_.data;
+
+        /**
+        we are going to start at the top left.
+        initialize the entire histogram.
+        **/
+        int sum0 = 0;
+        int median = 0;
+        for (int i = 0; i < 65536; ++i) {
+            median_hist_[i] = 0;
+        }
+        for (int y = 0; y < kMedianWidth; ++y) {
+            for (int x = 0; x < kMedianWidth; ++x) {
+                int px = pgray16[wd * y + x];
+                ++median_hist_[px];
+            }
+        }
+
+        /**
+        brute force find the median from the histogram.
+        then we're going to step down one pixel.
+        update the histogram by removing the top pixels.
+        and adding the bottom pixels.
+        slide the window up or down.
+        step down another pixel.
+        repeat until we reach the end of the column.
+        then we're going to slide one pixel to the right.
+        update the histogram by removing the left pixels.
+        and adding the right pixels.
+        repeat until we are done.
+        **/
+        int x0 = kMedianRadius;
+        int x1 = wd - kMedianRadius - 1;
+        int y0 = kMedianRadius;
+        int y1 = ht - kMedianRadius - 1;
+        int wx = x0;
+        int wy = y0;
+        int dir = +1;
+        for(;;) {
+            /** find the median efficiently. **/
+            for(;;) {
+                if (sum0 > kMedianHalfSize) {
+                    --median;
+                    sum0 -= median_hist_[median];
+                    continue;
+                }
+                int sum1 = sum0 + median_hist_[median];
+                if (sum1 <= kMedianHalfSize) {
+                    sum0 = sum1;
+                    ++median;
+                    continue;
+                }
+                pmedian16[wd * wy + wx] = median;
+                break;
+            }
+
+            /**
+            increment or decrement y.
+            switch direction at end of column.
+            and go to the next column.
+            **/
+            int new_wy = wy + dir;
+            if (new_wy >= y0 && new_wy <= y1) {
+                /** somewhere in the middle of the column. move up or down. **/
+                wy = new_wy;
+
+                /** adjust the histogram. **/
+                if (dir > 0) {
+                    /** remove top pixels. add bottom pixels. **/
+                    int x2 = wx - kMedianRadius;
+                    int x3 = wx + kMedianRadius;
+                    int y2 = wy - kMedianRadius - 1;
+                    int y3 = wy + kMedianRadius;
+                    for (int x = x2; x <= x3; ++x) {
+                        int px = pgray16[wd * y2 + x];
+                        if (px < median) {
+                            --sum0;
+                        }
+                        --median_hist_[px];
+                        px = pgray16[wd * y3 + x];
+                        if (px < median) {
+                            ++sum0;
+                        }
+                        ++median_hist_[px];
+                    }
+                } else {
+                    /** remove bottom pixels. add top pixels. **/
+                    int x2 = wx - kMedianRadius;
+                    int x3 = wx + kMedianRadius;
+                    int y2 = wy - kMedianRadius;
+                    int y3 = wy + kMedianRadius + 1;
+                    for (int x = x2; x <= x3; ++x) {
+                        int px = pgray16[wd * y3 + x];
+                        if (px < median) {
+                            --sum0;
+                        }
+                        --median_hist_[px];
+                        px = pgray16[wd * y2 + x];
+                        if (px < median) {
+                            ++sum0;
+                        }
+                        ++median_hist_[px];
+                    }
+                }
+            } else {
+                /** at end of column. switch direction and move right. **/
+                dir = - dir;
+                ++wx;
+                if (wx > x1) {
+                    break;
+                }
+
+                /** adjust the histogram. **/
+                /** remove left pixels. add right pixels. **/
+                int x2 = wx - kMedianRadius - 1;
+                int x3 = wx + kMedianRadius;
+                int y2 = wy - kMedianRadius;
+                int y3 = wy + kMedianRadius;
+                for (int y = y2; y <= y3; ++y) {
+                    int px = pgray16[wd * y + x2];
+                    if (px < median) {
+                        --sum0;
+                    }
+                    --median_hist_[px];
+                    px = pgray16[wd * y + x3];
+                    if (px < median) {
+                        ++sum0;
+                    }
+                    ++median_hist_[px];
+                }
+            }
+        }
+
+        /** last step. fill in the borders. **/
+        x0 = kMedianRadius;
+        x1 = wd - kMedianRadius;
+        y0 = 0;
+        y1 = kMedianRadius;
+        for (int x = x0; x < x1; ++x) {
+            int px = pmedian16[wd * y1 + x];
+            for (int y = y0; y < y1; ++y) {
+                pmedian16[wd * y + x] = px;
+            }
+        }
+        x0 = kMedianRadius;
+        x1 = wd - kMedianRadius;
+        y0 = ht - kMedianRadius;
+        y1 = ht;
+        for (int x = x0; x < x1; ++x) {
+            int px = pmedian16[wd * (y0-1) + x];
+            for (int y = y0; y < y1; ++y) {
+                pmedian16[wd * y + x] = px;
+            }
+        }
+        x0 = 0;
+        x1 = kMedianRadius;
+        y0 = 0;
+        y1 = ht;
+        for (int y = y0; y < y1; ++y) {
+            int px = pmedian16[wd * y + x1];
+            for (int x = x0; x < x1; ++x) {
+                pmedian16[wd * y + x] = px;
+            }
+        }
+        x0 = wd - kMedianRadius;
+        x1 = wd;
+        y0 = 0;
+        y1 = ht;
+        for (int y = y0; y < y1; ++y) {
+            int px = pmedian16[wd * y + x0-1];
+            for (int x = x0; x < x1; ++x) {
+                pmedian16[wd * y + x] = px;
+            }
         }
     }
 };

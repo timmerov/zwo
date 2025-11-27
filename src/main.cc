@@ -56,7 +56,9 @@ int main(
     everything at the this point is dead.
     except for non-blocking input.
     cause it blocks.
+    must close the log or it won't be written.
     **/
+    agm::log::exit();
     std::quick_exit(0);
     //return 0;
 }
