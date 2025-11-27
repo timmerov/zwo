@@ -1259,6 +1259,17 @@ public:
         int threshold = std::round(mean[0] + kThresholdStdDevs * stddev[0]);
         LOG("grayscale image mean="<<mean[0]<<" stddev="<<stddev[0]<< " threshold="<<threshold);
 
+        /** subtract the baseline. **/
+        pgray16 = (agm::uint16 *) gray16_.data;
+        for (int i = 0; i < sz; ++i) {
+            int px = *pgray16;
+            px -= baseline;
+            px = std::max(0, px);
+            *pgray16++ = px;
+        }
+        threshold -= baseline;
+        baseline = 0;
+
         for (int nstars = 0; nstars < kMaxCount; ++nstars) {
             /** find the maximum. **/
             int max_val = 0;
@@ -1339,6 +1350,7 @@ public:
         }
 
         /** show it **/
+#if 0
         pgray16 = (agm::uint16 *) gray16_.data;
         pimg = (agm::uint16 *) rgb16_.data;
         for (int i = 0; i < sz; ++i) {
@@ -1348,6 +1360,7 @@ public:
             pimg[2] = px;
             pimg += 3;
         }
+#endif
     }
 
     int countBrightPixels(
