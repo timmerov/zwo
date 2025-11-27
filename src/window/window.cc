@@ -1229,15 +1229,27 @@ public:
         /** configuration constants. **/
         static const double kThresholdStdDevs = 2.0;
         static const int kMaxRadius = 30;
-        static const int kMaxCount = 10;
-        static const int kAreaThreshold = 28;
+        static const int kMaxCount = 12;  //8
+        static const int kAreaThreshold = 13;//28;
         static const int kMinBrightCount = 5;
 
+        /** need 16 bit grayscale. **/
         int wd = img_->width_;
         int ht = img_->height_;
+        gray16_ = cv::Mat(ht, wd, CV_16UC1);
 
         /** convert to grayscale. **/
-        cv::cvtColor(rgb16_, gray16_, cv::COLOR_RGB2GRAY);
+        int sz = wd * ht;
+        auto pgray16 = (agm::uint16 *) gray16_.data;
+        auto pimg = (agm::uint16 *) rgb16_.data;
+        for (int i = 0; i < sz; ++i) {
+            int b = pimg[0];
+            int g = pimg[1];
+            int r = pimg[2];
+            int px = (b + g + r + 2) / 3;
+            *pgray16++ = px;
+            pimg += 3;
+        }
 
         /** get the mean and standard deviation of the grayscale image. **/
         cv::Scalar mean;
@@ -1245,7 +1257,7 @@ public:
         cv::meanStdDev(gray16_, mean, stddev);
         int baseline = std::round(mean[0]);
         int threshold = std::round(mean[0] + kThresholdStdDevs * stddev[0]);
-        //LOG("grayscale image mean="<<mean[0]<<" stddev="<<stddev[0]<< " threshold="<<threshold);
+        LOG("grayscale image mean="<<mean[0]<<" stddev="<<stddev[0]<< " threshold="<<threshold);
 
         for (int nstars = 0; nstars < kMaxCount; ++nstars) {
             /** find the maximum. **/
@@ -1266,7 +1278,6 @@ public:
                 }
                 pgray16_row += wd;
             }
-            //LOG("max="<<max_val<<" x,y="<<max_x<<","<<max_y);
 
             /** stop when it's below the threshold. **/
             if (max_val <= threshold) {
@@ -1300,10 +1311,11 @@ public:
             int half_height = (max_val + baseline + 1) / 2;
             int bright_pixels = 1;
             int square_radius = 1;
+            int area = 1;
             for (; square_radius < kMaxRadius; ++square_radius) {
                 bright_pixels += countBrightPixels(max_x, max_y, square_radius, half_height);
                 int square_width = square_radius + 1 + square_radius;
-                int area = square_width * square_width;
+                area = square_width * square_width;
                 if (100 * bright_pixels <= kAreaThreshold * area) {
                     break;
                 }
@@ -1317,7 +1329,7 @@ public:
 
                 /** save the star. **/
                 star_positions_.push_back(star);
-                LOG("Found a star at "<<max_x<<","<<max_y<<" size="<<square_radius<<".");
+                LOG("Found a star at "<<max_x<<","<<max_y<<" size="<<square_radius<<" max="<<max_val<<" area="<<area<<" count="<<bright_pixels<<".");
             } else {
                 LOG("Skipped small blob at "<<max_x<<","<<max_y);
             }
@@ -1327,9 +1339,8 @@ public:
         }
 
         /** show it **/
-        auto pgray16 = (agm::uint16 *) gray16_.data;
-        auto pimg = (agm::uint16 *) rgb16_.data;
-        int sz = wd * ht;
+        pgray16 = (agm::uint16 *) gray16_.data;
+        pimg = (agm::uint16 *) rgb16_.data;
         for (int i = 0; i < sz; ++i) {
             int px = *pgray16++;
             pimg[0] = px;
