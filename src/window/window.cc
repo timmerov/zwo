@@ -189,8 +189,15 @@ void WindowThread::wait_for_swap() noexcept {
         if (std::isprint(key) || key == '\n') {
             input_.push_back(key);
             if (key == '\n') {
-                std::lock_guard<std::mutex> lock(settings_->mutex_);
-                settings_->input_ += std::move(input_);
+                {
+                    std::lock_guard<std::mutex> lock(settings_->mutex_);
+                    settings_->input_ += std::move(input_);
+                }
+                /**
+                std::move means raid my resources.
+                it does not mean clear them on the way out.
+                **/
+                input_.clear();
             }
         }
 
@@ -229,9 +236,16 @@ void WindowThread::copySettings() noexcept {
     circles_y_ = settings_->circles_y_;
     show_fps_ = settings_->show_fps_;
     find_stars_ = settings_->find_stars_;
+    /**
+    std::move means raid my resources.
+    it does not mean clear them on the way out.
+    **/
     save_file_name_ = std::move(settings_->save_file_name_);
+    settings_->save_file_name_.clear();
     raw_file_name_ = std::move(settings_->raw_file_name_);
+    settings_->raw_file_name_.clear();
     save_path_ = std::move(settings_->save_path_);
+    settings_->save_path_.clear();
 }
 
 void WindowThread::checkBlurriness() noexcept {

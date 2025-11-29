@@ -324,7 +324,12 @@ public:
         std::lock_guard<std::mutex> lock(settings_->mutex_);
         auto_exposure_ = settings_->auto_exposure_;
         exposure_ = settings_->exposure_;
+        /**
+        std::move means raid my resources.
+        it does not mean clear them on the way out.
+        **/
         load_file_name_ = std::move(settings_->load_file_name_);
+        settings_->load_file_name_.clear();
     }
 
     void writeSettings() noexcept {

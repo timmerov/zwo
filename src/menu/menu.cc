@@ -65,7 +65,7 @@ public:
     /** get input from stdin and from the settings buffer. **/
     void get_input() noexcept {
         /** don't get more input if we already have input. **/
-        if (input_.size()) {
+        if (input_.size() > 0) {
             return;
         }
 
@@ -76,8 +76,15 @@ public:
         }
 
         /** get input from some other thread. **/
-        std::lock_guard<std::mutex> lock(settings_->mutex_);
-        input_ = std::move(settings_->input_);
+        {
+            std::lock_guard<std::mutex> lock(settings_->mutex_);
+            /**
+            std::move means raid my resources.
+            it does not mean clear them.
+            **/
+            input_ = std::move(settings_->input_);
+            settings_->input_.clear();
+        }
     }
 
     void parse_input() noexcept {
