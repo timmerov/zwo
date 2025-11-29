@@ -1,5 +1,5 @@
 /**
-Copyright (C) 2024 tim cotter. All rights reserved.
+Copyright (C) 2024-2025 tim cotter. All rights reserved.
 **/
 
 #include <mutex>

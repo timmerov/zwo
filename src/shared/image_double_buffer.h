@@ -1,5 +1,5 @@
 /**
-Copyright (C) 2012-2024 tim cotter. All rights reserved.
+Copyright (C) 2012-2025 tim cotter. All rights reserved.
 
 double buffer holds the images produced by the capture thread and displayed by the window thread.
 **/
