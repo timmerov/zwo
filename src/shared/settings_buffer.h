@@ -45,6 +45,7 @@ public:
     std::string load_file_name_;
     std::string save_file_name_;
     std::string raw_file_name_;
+    std::string save_path_;
     std::string input_;
 };
 

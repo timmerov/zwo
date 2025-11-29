@@ -61,6 +61,7 @@ public:
     bool find_stars_ = false;
     std::string save_file_name_;
     std::string raw_file_name_;
+    std::string save_path_;
     std::string input_;
 
     /** our fields. **/
@@ -306,6 +307,7 @@ public:
         find_stars_ = settings_->find_stars_;
         save_file_name_ = std::move(settings_->save_file_name_);
         raw_file_name_ = std::move(settings_->raw_file_name_);
+        save_path_ = std::move(settings_->save_path_);
     }
 
     void checkBlurriness() noexcept {
@@ -1066,7 +1068,8 @@ public:
         /** this is why you do not throw exceptions ever. **/\
         bool success = false;
         try {
-            success = cv::imwrite(save_file_name_, rgb8_gamma_);
+            std::string filename = save_path_ + save_file_name_;
+            success = cv::imwrite(filename, rgb8_gamma_);
         } catch (const cv::Exception& ex) {
             LOG("CaptureThread Failed to save image to file: "<<save_file_name_<<" OpenCV reason: "<<ex.what());
         }
@@ -1076,7 +1079,8 @@ public:
     /** save the raw 16 bit image using tiff. **/
     bool saveImage16() noexcept {
         /** create the tiff file. **/
-        TIFF *tiff = TIFFOpen(raw_file_name_.c_str(), "w");
+        std::string filename = save_path_ + raw_file_name_;
+        TIFF *tiff = TIFFOpen(filename.c_str(), "w");
         if (tiff == nullptr) {
             LOG("CaptureThread Failed to create tiff file: "<<raw_file_name_);
             return false;
@@ -1141,7 +1145,8 @@ public:
     /** save the 32 bit image using tiff. **/
     bool saveImage32() noexcept {
         /** create the tiff file. **/
-        TIFF *tiff = TIFFOpen(save_file_name_.c_str(), "w");
+        std::string filename = save_path_ + save_file_name_;
+        TIFF *tiff = TIFFOpen(filename.c_str(), "w");
         if (tiff == nullptr) {
             LOG("CaptureThread Failed to create tiff file: "<<save_file_name_);
             return false;

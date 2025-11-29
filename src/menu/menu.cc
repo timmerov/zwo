@@ -130,6 +130,10 @@ public:
             handleMount();
             break;
 
+        case 'p':
+            setSavePath();
+            break;
+
         case 'q':
         case 27: /*escape*/
             quit();
@@ -193,6 +197,7 @@ public:
         LOG("  mm [nsew] ms : slew n,s,e,w for milliseconds");
         LOG("  mr#          : set slewing rate 1-9");
         LOG("  mz           : slew to zero (home) position");
+        LOG("  p path       : prefix for saved files: "<<settings_->save_path_);
         LOG("  q,esc        : quit");
         LOG("  r [+-01yn]   : toggle fps (frame Rate): "<<settings_->show_fps_);
         LOG("  s file       : save the image (disables stacking).");
@@ -425,6 +430,25 @@ public:
         {
             std::lock_guard<std::mutex> lock(settings_->mutex_);
             std::swap(settings_->load_file_name_, filename);
+        }
+    }
+
+    void setSavePath() noexcept {
+        std::stringstream ss;
+        ss << input_;
+        char ch;
+        std::string path;
+        ss >> ch >> path;
+
+        /** ensure there's a trailing slash. **/
+        if (path.size() > 0 && path.back() != '/') {
+            path += '/';
+        }
+
+        LOG("MenuThread save path: "<<path);
+        {
+            std::lock_guard<std::mutex> lock(settings_->mutex_);
+            std::swap(settings_->save_path_, path);
         }
     }
 
