@@ -111,20 +111,6 @@ public:
 
     void checkBlurriness() noexcept;
 
-    /**
-    capture a sequence of black frames.
-    **/
-    void captureBlack() noexcept;
-
-    void processBlack() noexcept;
-
-    void fixBadPixels() noexcept;
-
-    /**
-    subtract black from the image.
-    **/
-    void subtractBlack() noexcept;
-
     /** no alignment **/
     void stackImages() noexcept;
 
@@ -187,6 +173,24 @@ public:
     /** crop the captured image if necessary. **/
     void setWindowCrop() noexcept;
 
+
+    /** vvvvv ----- black.cc ----- vvvvv **/
+
+    /**
+    capture a sequence of black frames.
+    **/
+    void captureBlack() noexcept;
+
+    void processBlack() noexcept;
+
+    void fixBadPixels() noexcept;
+
+    /**
+    subtract black from the image.
+    **/
+    void subtractBlack() noexcept;
+
+    /** ^^^^^ ----- black.cc ----- ^^^^^ **/
 
     /** vvvvv ----- file.cc ----- vvvvv **/
 
