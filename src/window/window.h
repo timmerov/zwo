@@ -187,6 +187,39 @@ public:
     /** crop the captured image if necessary. **/
     void setWindowCrop() noexcept;
 
+
+    /** vvvvv ----- file.cc ----- vvvvv **/
+
+    /** save the image to the file. **/
+    void saveImage() noexcept;
+
+    /** save the 8 bit gamma corrected image. **/
+    void saveDisplayImage() noexcept;
+
+    /** save the 16 bit raw image. **/
+    void saveRawImage() noexcept;
+
+    /** save the accumulated image and disable stacking. **/
+    void saveAccumulatedImage() noexcept;
+
+    /** save the 8 bit image using opencv. **/
+    bool saveImage8() noexcept;
+
+    /** save the raw 16 bit image using tiff. **/
+    bool saveImage16() noexcept;
+
+    /** save the 32 bit image using tiff. **/
+    bool saveImage32() noexcept;
+
+    int scale32(
+        int src,
+        int scale
+    ) noexcept;
+
+    /** ^^^^^ ----- file.cc ----- ^^^^^ **/
+
+    /** vvvvv ----- findstars.cc ----- vvvvv **/
+
     /**
     find stars.
     convert to flat grayscale where rgb are weighted equally.
@@ -254,34 +287,6 @@ public:
 
     void findMedianGrays() noexcept;
 
-    /** vvvvv ----- file.cc ----- vvvvv **/
-
-    /** save the image to the file. **/
-    void saveImage() noexcept;
-
-    /** save the 8 bit gamma corrected image. **/
-    void saveDisplayImage() noexcept;
-
-    /** save the 16 bit raw image. **/
-    void saveRawImage() noexcept;
-
-    /** save the accumulated image and disable stacking. **/
-    void saveAccumulatedImage() noexcept;
-
-    /** save the 8 bit image using opencv. **/
-    bool saveImage8() noexcept;
-
-    /** save the raw 16 bit image using tiff. **/
-    bool saveImage16() noexcept;
-
-    /** save the 32 bit image using tiff. **/
-    bool saveImage32() noexcept;
-
-    int scale32(
-        int src,
-        int scale
-    ) noexcept;
-
-    /** ^^^^^ ----- file.cc ----- ^^^^^ **/
+    /** ^^^^^ ----- findstars.cc ----- ^^^^^ **/
 };
 } // WindowThread
