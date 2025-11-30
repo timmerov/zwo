@@ -34,10 +34,6 @@ WindowThread::WindowThread(
     **/
     img_ = image_double_buffer_->acquire(1);
 
-    /** create the window. **/
-    cv::namedWindow(win_name_);
-    cv::moveWindow(win_name_, 50, 50);
-
     /** initialize the gamma table. **/
     initGammaTable();
 
@@ -63,6 +59,10 @@ WindowThread::WindowThread(
     if (first_image_ == false) {
         first_image_ = true;
         LOG("WindowThread Received "<<wd<<"x"<<ht<<".");
+
+        /** create the window. **/
+        cv::namedWindow(win_name_);
+        cv::moveWindow(win_name_, 50, 50);
 
         /** finish initialization now that we know the capture size. **/
         rgb8_gamma_ = cv::Mat(ht, wd, CV_8UC3);
@@ -215,7 +215,10 @@ void WindowThread::wait_for_swap() noexcept {
 }
 
 /*virtual*/ void WindowThread::end() noexcept {
-    cv::destroyWindow(win_name_);
+    if (first_image_) {
+        cv::destroyWindow(win_name_);
+        cv::destroyAllWindows();
+    }
     LOG("WindowThread Closed window.");
 }
 

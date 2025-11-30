@@ -49,16 +49,19 @@ int main(
     threads.push_back(createWindowThread(image_double_buffer, &settings_buffer));
     threads.push_back(createMenuThread(&settings_buffer));
 
-    /** run the threads one of them stops all of them. **/
+    /** run the threads until one of them stops all of them. **/
     agm::Thread::runAll(threads, containers);
 
-    /**
-    everything at the this point is dead.
-    except for non-blocking input.
-    cause it blocks.
-    must close the log or it won't be written.
-    **/
+    /** delete all threads. **/
+    for (auto &&thread : threads) {
+        delete thread;
+    }
+    /** delete all containers. **/
+    for (auto &&container : containers) {
+        delete container;
+    }
+
+    /** flush the log just to be safe. **/
     agm::log::exit();
-    std::quick_exit(0);
-    //return 0;
+    return 0;
 }

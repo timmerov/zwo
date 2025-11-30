@@ -23,6 +23,11 @@ namespace {
         agm::Semaphore sem0_;
         agm::Semaphore sem1_;
 
+        void init() noexcept {
+            img0_.bayer_ = cv::Mat(0, 0, CV_16UC1);
+            img1_.bayer_ = cv::Mat(0, 0, CV_16UC1);
+        }
+
         ImageBuffer *swap(
             agm::Semaphore &sema,
             agm::Semaphore &semb,
@@ -52,6 +57,7 @@ ImageDoubleBuffer::~ImageDoubleBuffer() noexcept {
 
 ImageDoubleBuffer *ImageDoubleBuffer::create() noexcept {
     auto impl = new(std::nothrow) ImageDoubleBufferImpl;
+    impl->init();
     return impl;
 }
 
