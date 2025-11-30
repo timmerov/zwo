@@ -35,36 +35,23 @@ set(ZWO_ASI_DIR "/home/timmer/Documents/code/astrophotography/ASI_linux_mac_SDK_
 set(AGM_DIR "${CMAKE_SOURCE_DIR}/../aggiornamento/agm")
 
 # find the opencv package
-#find_package(OpenCV REQUIRED)
+find_package(OpenCV REQUIRED)
 
 # find the curses package
 find_package(TIFF REQUIRED)
 
 # add the include directories
 set(INCS
-#    ${OpenCV_INCLUDE_DIRS}
-    "/home/timmer/Documents/code/opencv/install/include/opencv4/"
+    ${OpenCV_INCLUDE_DIRS}
     ${ZWO_ASI_DIR}/include
     ${AGM_DIR}/inc
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 include_directories(${INCS})
 
-set(cv_installed_libs
-libopencv_calib3d.so  libopencv_features2d.so  libopencv_highgui.so    libopencv_ml.so         libopencv_stitching.so
-libopencv_core.so     libopencv_flann.so       libopencv_imgcodecs.so  libopencv_objdetect.so  libopencv_videoio.so
-libopencv_dnn.so      libopencv_gapi.so        libopencv_imgproc.so    libopencv_photo.so      libopencv_video.so
-)
-link_directories("/home/timmer/Documents/code/opencv/build/lib/")
-foreach(lib IN LISTS cv_installed_libs)
-    list(APPEND cv_libs "/home/timmer/Documents/code/opencv/install/lib/${lib}")
-endforeach()
-message("=TSC= cv_libs=" ${cv_libs})
-
 # add the libraries
 set(LIBS
-#    ${OpenCV_LIBS}
-    ${cv_libs}
+    ${OpenCV_LIBS}
     ${TIFF_LIBRARIES}
     ${ZWO_ASI_DIR}/lib/x64/libASICamera2.so
     ${AGM_DIR}/lib/libagm.a
