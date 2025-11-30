@@ -61,7 +61,7 @@ WindowThread::WindowThread(
         LOG("WindowThread Received "<<wd<<"x"<<ht<<".");
 
         /** create the window. **/
-        cv::namedWindow(win_name_);
+        cv::namedWindow(win_name_, cv::WINDOW_OPENGL | cv::WINDOW_AUTOSIZE);
         cv::moveWindow(win_name_, 50, 50);
 
         /** finish initialization now that we know the capture size. **/
