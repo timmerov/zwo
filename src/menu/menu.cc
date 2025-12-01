@@ -411,6 +411,16 @@ public:
         return value;
     }
 
+    /** parse the input as a string. **/
+    std::string getString() noexcept {
+        std::stringstream ss;
+        ss <<input_;
+        char ch;
+        std::string str;
+        ss >> ch >> str;
+        return str;
+    }
+
     /**
     start at the second character of the input.
     look for plus/minus 0/1 y/n.
@@ -466,11 +476,7 @@ public:
     }
 
     void loadImage() noexcept {
-        std::stringstream ss;
-        ss << input_;
-        char ch;
-        std::string filename;
-        ss >> ch >> filename;
+        auto filename = getString();
         if (filename.size() == 0) {
             return;
         }
@@ -483,11 +489,7 @@ public:
     }
 
     void setSavePath() noexcept {
-        std::stringstream ss;
-        ss << input_;
-        char ch;
-        std::string path;
-        ss >> ch >> path;
+        auto path = getString();
 
         /** ensure there's a trailing slash. **/
         if (path.size() > 0 && path.back() != '/') {
@@ -502,11 +504,7 @@ public:
     }
 
     void saveImage() noexcept {
-        std::stringstream ss;
-        ss << input_;
-        char ch;
-        std::string filename;
-        ss >> ch >> filename;
+        auto filename = getString();
         if (filename.size() == 0) {
             return;
         }
@@ -519,19 +517,24 @@ public:
     }
 
     void saveRaw() noexcept {
-        std::stringstream ss;
-        ss << input_;
-        char ch;
-        std::string filename;
-        ss >> ch >> filename;
-        if (filename.size() == 0) {
-            return;
+        bool new_auto_save = settings_->auto_save_;
+        std::string new_filename;
+
+        bool set = toggleOnOff(new_auto_save);
+        if (set == false) {
+            new_filename = getString();
+            auto found = new_filename.find('#');
+            if (found != std::string::npos) {
+                new_auto_save = true;
+            }
         }
 
-        LOG("MenuThread save raw: "<<filename);
+        LOG("MenuThread auto save: "<<new_auto_save);
+        LOG("MenuThread save raw: "<<new_filename);
         {
             std::lock_guard<std::mutex> lock(settings_->mutex_);
-            std::swap(settings_->raw_file_name_, filename);
+            std::swap(settings_->auto_save_, new_auto_save);
+            std::swap(settings_->raw_file_name_, new_filename);
         }
     }
 

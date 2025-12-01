@@ -23,6 +23,8 @@ void WindowThread::saveImage() noexcept {
         } else {
             saveDisplayImage();
         }
+    } else if (auto_save_) {
+        autoSaveRawImage();
     } else if (raw_file_name_.size()) {
         saveRawImage();
     }
@@ -36,9 +38,43 @@ void WindowThread::saveDisplayImage() noexcept {
     }
 }
 
+/** auto save the 16 bit raw image. **/
+void WindowThread::autoSaveRawImage() noexcept {
+    /** do we have a new auto save file name? **/
+    if (raw_file_name_.size()) {
+        auto pos = raw_file_name_.find('#');
+        if (pos != std::string::npos) {
+            auto_save_name_ = std::move(raw_file_name_);
+        }
+        raw_file_name_.clear();
+    }
+
+    /** do we have an auto save file name? **/
+    if (auto_save_name_.size() == 0) {
+        return;
+    }
+
+    /** do we have a valid auto save file name? **/
+    auto pos = auto_save_name_.find('#');
+    if (pos == std::string::npos) {
+        return;
+    }
+    std::string prefix = auto_save_name_.substr(0, pos);
+    std::string suffix = auto_save_name_.substr(pos + 1);
+    std::stringstream ss;
+    ss << prefix << std::setw(4) << std::setfill('0') << auto_save_counter_ << suffix;
+    std::string filename = ss.str();
+    ++auto_save_counter_;
+
+    bool success = saveImage16(filename);
+    if (success) {
+        LOG("CaptureThread Auto saved raw image to 16 bit tiff file: "<<filename);
+    }
+}
+
 /** save the 16 bit raw image. **/
 void WindowThread::saveRawImage() noexcept {
-    bool success = saveImage16();
+    bool success = saveImage16(raw_file_name_);
     if (success) {
         LOG("CaptureThread Saved raw image to 16 bit tiff file: "<<raw_file_name_);
     }
@@ -66,22 +102,25 @@ void WindowThread::saveAccumulatedImage() noexcept {
 bool WindowThread::saveImage8() noexcept {
     /** this is why you do not throw exceptions ever. **/\
     bool success = false;
+    std::string filename = save_path_ + save_file_name_;
     try {
-        std::string filename = save_path_ + save_file_name_;
         success = cv::imwrite(filename, rgb8_gamma_);
     } catch (const cv::Exception& ex) {
-        LOG("CaptureThread Failed to save image to file: "<<save_file_name_<<" OpenCV reason: "<<ex.what());
+        LOG("CaptureThread Failed to save image to file: "<<filename<<" OpenCV reason: "<<ex.what());
     }
     return success;
 }
 
 /** save the raw 16 bit image using tiff. **/
-bool WindowThread::saveImage16() noexcept {
+bool WindowThread::saveImage16(
+    std::string& raw_file_name
+) noexcept {
     /** create the tiff file. **/
-    std::string filename = save_path_ + raw_file_name_;
+    std::string filename = save_path_ + raw_file_name;
+    LOG("filename="<<filename);
     TIFF *tiff = TIFFOpen(filename.c_str(), "w");
     if (tiff == nullptr) {
-        LOG("CaptureThread Failed to create tiff file: "<<raw_file_name_);
+        LOG("CaptureThread Failed to create tiff file: "<<filename);
         return false;
     }
 
@@ -132,7 +171,7 @@ bool WindowThread::saveImage16() noexcept {
     }
 
     if (success == false) {
-        LOG("CaptureThread Failed to write tiff file: "<<raw_file_name_);
+        LOG("CaptureThread Failed to write tiff file: "<<filename);
     }
 
     delete[] buffer;
@@ -147,7 +186,7 @@ bool WindowThread::saveImage32() noexcept {
     std::string filename = save_path_ + save_file_name_;
     TIFF *tiff = TIFFOpen(filename.c_str(), "w");
     if (tiff == nullptr) {
-        LOG("CaptureThread Failed to create tiff file: "<<save_file_name_);
+        LOG("CaptureThread Failed to create tiff file: "<<filename);
         return false;
     }
 
@@ -208,7 +247,7 @@ bool WindowThread::saveImage32() noexcept {
     }
 
     if (success == false) {
-        LOG("CaptureThread Failed to write tiff file: "<<save_file_name_);
+        LOG("CaptureThread Failed to write tiff file: "<<filename);
     }
 
     delete[] buffer;

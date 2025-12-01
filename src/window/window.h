@@ -26,36 +26,13 @@ public:
 };
 typedef std::vector<StarPosition> StarPositions;
 
-class WindowThread : public agm::Thread {
+class WindowThread : public agm::Thread, public Settings {
 public:
     /** share data with the capture thread. **/
     ImageDoubleBuffer *image_double_buffer_ = nullptr;
     ImageBuffer *img_ = nullptr;
     /** share data with the menu thread. **/
     SettingsBuffer *settings_ = nullptr;
-    bool accumulate_ = false;
-    bool capture_black_ = false;
-    int black_frames_ = 0;
-    double black_mean_ = 0.0;
-    double black_std_dev_ = 0.0;
-    std::vector<int> bad_pixels_;
-    double balance_red_ = 1.0;
-    double balance_blue_ = 1.0;
-    int exposure_ = 100;
-    bool show_focus_ = false;
-    double gamma_ = 1.0;
-    bool auto_iso_ = false;
-    int iso_ = 100;
-    bool show_circles_ = false;
-    double circles_x_ = 0.0;
-    double circles_y_ = 0.0;
-    bool show_histogram_ = false;
-    bool show_fps_ = false;
-    bool find_stars_ = false;
-    std::string save_file_name_;
-    std::string raw_file_name_;
-    std::string save_path_;
-    std::string input_;
 
     /** our fields. **/
     cv::String win_name_ = "ZWO ASI";
@@ -84,10 +61,16 @@ public:
     StarPositions star_positions_;
     cv::Mat median16_;
     std::vector<int> median_hist_;
+    int black_frames_ = 0;
+    double black_mean_ = 0.0;
+    double black_std_dev_ = 0.0;
+    std::vector<int> bad_pixels_;
+    int auto_save_counter_ = 0;
+    std::string auto_save_name_;
 
     WindowThread(
         ImageDoubleBuffer *image_double_buffer,
-        SettingsBuffer *settings_buffer
+        SettingsBuffer *settings
     ) noexcept;
 
     virtual ~WindowThread() = default;
@@ -203,6 +186,9 @@ public:
     /** save the 16 bit raw image. **/
     void saveRawImage() noexcept;
 
+    /** auto Save the 16 bit raw image. **/
+    void autoSaveRawImage() noexcept;
+
     /** save the accumulated image and disable stacking. **/
     void saveAccumulatedImage() noexcept;
 
@@ -210,7 +196,7 @@ public:
     bool saveImage8() noexcept;
 
     /** save the raw 16 bit image using tiff. **/
-    bool saveImage16() noexcept;
+    bool saveImage16(std::string& filename) noexcept;
 
     /** save the 32 bit image using tiff. **/
     bool saveImage32() noexcept;

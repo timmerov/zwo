@@ -20,10 +20,10 @@ namespace WindowThread {
 
 WindowThread::WindowThread(
     ImageDoubleBuffer *image_double_buffer,
-    SettingsBuffer *settings_buffer
-) noexcept : agm::Thread("WindowThread") {
+    SettingsBuffer *settings
+) noexcept : agm::Thread("WindowThread"), Settings() {
     image_double_buffer_ = image_double_buffer;
-    settings_ = settings_buffer;
+    settings_ = settings;
 }
 
 /*virtual*/ void WindowThread::begin() noexcept {
@@ -222,6 +222,11 @@ void WindowThread::wait_for_swap() noexcept {
     LOG("WindowThread Closed window.");
 }
 
+/**
+as much as we'd like to just std::move all of the settings...
+we don't actually own all of them.
+namely, input_.
+**/
 void WindowThread::copySettings() noexcept {
     std::lock_guard<std::mutex> lock(settings_->mutex_);
     accumulate_ = settings_->accumulate_;
@@ -239,15 +244,18 @@ void WindowThread::copySettings() noexcept {
     circles_y_ = settings_->circles_y_;
     show_fps_ = settings_->show_fps_;
     find_stars_ = settings_->find_stars_;
+    auto_save_ = settings_->auto_save_;
+    save_file_name_ = std::move(settings_->save_file_name_);
+    raw_file_name_ = std::move(settings_->raw_file_name_);
+    if (settings_->save_path_.size() > 0) {
+        save_path_ = std::move(settings_->save_path_);
+    }
     /**
     std::move means raid my resources.
     it does not mean clear them on the way out.
     **/
-    save_file_name_ = std::move(settings_->save_file_name_);
     settings_->save_file_name_.clear();
-    raw_file_name_ = std::move(settings_->raw_file_name_);
     settings_->raw_file_name_.clear();
-    save_path_ = std::move(settings_->save_path_);
     settings_->save_path_.clear();
 }
 

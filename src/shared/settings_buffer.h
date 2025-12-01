@@ -42,6 +42,7 @@ public:
     double circles_y_ = 0.0;
     bool show_fps_ = false;
     bool find_stars_ = false;
+    bool auto_save_ = false;
     std::string load_file_name_;
     std::string save_file_name_;
     std::string raw_file_name_;
