@@ -29,6 +29,7 @@ public:
     agm::NonBlockingInput nbi_;
     SettingsBuffer *settings_ = nullptr;
     std::string input_;
+    std::string input_lines_;
     Ioptron *mount_ = nullptr;
     bool is_tracking_ = false;
 
@@ -66,13 +67,13 @@ public:
     /** get input from stdin and from the settings buffer. **/
     void get_input() noexcept {
         /** don't get more input if we already have input. **/
-        if (input_.size() > 0) {
+        if (input_lines_.size() > 0) {
             return;
         }
 
         /** get input from stdin. **/
-        input_ = nbi_.get();
-        if (input_.size()) {
+        input_lines_ = nbi_.get();
+        if (input_lines_.size()) {
             return;
         }
 
@@ -83,15 +84,19 @@ public:
             std::move means raid my resources.
             it does not mean clear them.
             **/
-            input_ = std::move(settings_->input_);
+            input_lines_ = std::move(settings_->input_);
             settings_->input_.clear();
+        }
+        if (input_lines_.size()) {
+            return;
         }
     }
 
     void parse_input() noexcept {
-        if (input_.size() == 0) {
+        if (input_lines_.size() == 0) {
             return;
         }
+        getFirstLine();
         int ch = popCommandFromInput();
         switch (ch) {
         case 'a':
@@ -182,6 +187,23 @@ public:
             input_.clear();
         } else {
             input_.erase(0, eol + 1);
+        }
+    }
+
+    void getFirstLine() noexcept {
+        /** find the end of line. **/
+        auto pos = input_lines_.find('\n');
+        if (pos == std::string::npos) {
+            /** move the entire input to line. **/
+            input_ = std::move(input_lines_);
+            input_lines_.clear();
+        } else {
+            /** include the end of line. **/
+            ++pos;
+            /** copy the first line to line. **/
+            input_ = input_lines_.substr(0, pos);
+            /** erase the first line from input. **/
+            input_lines_.erase(0, pos);
         }
     }
 
@@ -568,16 +590,19 @@ public:
             LOG("MenuThread Loading commands from config file \""<<filename<<"\".");
             std::stringstream ss;
             ss << cfg.rdbuf();
-            input_ += std::move(ss.str());
+            std::string input = ss.str();
 
-            if (input_.size() > 0) {
+            if (input.size() > 0) {
                 /** change carriage returns to end lines. **/
-                std::replace(input_.begin(), input_.end(), '\r', '\n');
+                std::replace(input.begin(), input.end(), '\r', '\n');
 
                 /** ensure the last character is \n. **/
-                if (input_.back() != '\n') {
-                    input_ += "\n";
+                if (input.back() != '\n') {
+                    input += "\n";
                 }
+
+                /** append the lines to the input. **/
+                input_lines_ += input;
             }
         } else {
             LOG("MenuThead Config file \""<<filename<<"\" not found.");

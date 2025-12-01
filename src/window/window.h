@@ -23,6 +23,7 @@ public:
     double sum_x_;
     double sum_y_;
     double sum_;
+    int brightness_;
 };
 typedef std::vector<StarPosition> StarPositions;
 

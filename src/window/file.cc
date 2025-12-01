@@ -8,6 +8,8 @@ save images to file.
 window thread
 **/
 
+#include <fstream>
+
 #include <tiffio.h>
 
 #include "window.h"
@@ -64,11 +66,39 @@ void WindowThread::autoSaveRawImage() noexcept {
     std::stringstream ss;
     ss << prefix << std::setw(4) << std::setfill('0') << auto_save_counter_ << suffix;
     std::string filename = ss.str();
+    ss.str().clear();
+    ss.clear();
     ++auto_save_counter_;
 
     bool success = saveImage16(filename);
     if (success) {
         LOG("CaptureThread Auto saved raw image to 16 bit tiff file: "<<filename);
+    }
+
+    /** save positions of the stars we found. **/
+    if (find_stars_ == false) {
+        return;
+    }
+    int nstars = star_positions_.size();
+    if (nstars == 0) {
+        return;
+    }
+    pos = filename.rfind('.');
+    if (pos == std::string::npos) {
+        return;
+    }
+    prefix = filename.substr(0, pos);
+    filename = prefix + ".txt";
+    LOG("Writing found star information to file: "<<filename);
+    auto pathname = save_path_ + filename;
+    std::ofstream fs(pathname);
+    fs<<"# Found "<<nstars<<" stars:"<<std::endl;
+    fs<<"# x coordinate on screen: left=0 right="<<img_->width_<<std::endl;
+    fs<<"# y coordinate on screen: top=0 bottom="<<img_->height_<<std::endl;
+    fs<<"# relative brightness: black=0 white=65535"<<std::endl;
+    fs<<std::endl;
+    for (auto&& pos : star_positions_) {
+        fs<<pos.x_<<" "<<pos.y_<<" "<<pos.brightness_<<std::endl;
     }
 }
 

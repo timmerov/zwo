@@ -160,6 +160,7 @@ void WindowThread::findStars() noexcept {
             /** compute centroid. **/
             StarPosition star;
             blobCentroid(star, max_x, max_y, square_radius);
+            star.brightness_ = max_val;
 
             /** save the star. **/
             star_positions_.push_back(star);
