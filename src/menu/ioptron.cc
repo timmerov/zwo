@@ -33,8 +33,8 @@ The 5th digit stands for time source: 1 means RS-232 port, 2 means hand controll
 The 6th digit stands for hemisphere: 0 means Southern Hemisphere, 1 means Northern Hemisphere.
 
 :GEC# sSSSSSSSSSSSSSSSS
-The sign and first 9 digits stands for current Declination, the unit of current Declination is 0.01 arc second.
-The last 9 digits stands for current Right Ascension, the unit current Right Ascension is 0.01 second.
+The sign and first 9 digits stands for current Declination, the unit of current Declination is 0.01 arcsecond.
+The last 9 digits stands for current Right Ascension, the unit current Right Ascension is milliseconds.
 
 :MS#
 Response: “1” if command accepted, “0” The desired object is below 0 degrees altitude.
@@ -146,6 +146,33 @@ it moves the scope towards or away from the celestial north pole.
 #include "ioptron.h"
 
 namespace {
+
+double centiarcsecondsToDegrees(
+    const std::string& s
+) noexcept {
+    /**
+    range is -32,400,000 to +32,400,000.
+    resolution is 0.01 arc-second.
+    scale factor is 90 degrees / 32,400,000 = 1 / 360,000.
+    **/
+    int centiarcseconds = std::stoi(s);
+    double angle = double(centiarcseconds) / 360000.0;
+    return angle;
+}
+
+double milliSecondsOfArcToDegrees(
+    const std::string& s
+) noexcept {
+    /**
+    range is 0 to +86,400,000.
+    resolution is 0.001 seconds of arc.
+    scale factor is 360 degrees / 86,400,000 = 1 / 240,000.
+    **/
+    int milliSecondsOfArc = std::stoi(s);
+    double angle = double(milliSecondsOfArc) / 240000.0;
+    return angle;
+}
+
 class ArcSeconds {
 public:
     ArcSeconds() noexcept = default;
@@ -199,37 +226,39 @@ public:
     void fromDeclination(
         std::string &s
     ) noexcept {
-        /**
-        range is -32,400,000 to +32,400,000.
-        resolution is 0.01 arc-second.
-        **/
-        int angle = std::stoi(s);
-        angle_ = double(angle) / 360000.0;
-        angle = std::abs(angle);
-        secs_ = double(angle % 6000) / 100.0;
-        angle /= 6000;
-        mins_ = angle % 60;
-        degs_ = angle / 60;
-
-        if (angle_ < 0.0) {
-            degs_ = - degs_;
-        }
+        angle_ = centiarcsecondsToDegrees(s);
+        fromAngle();
     }
 
     void fromRightAscension(
         std::string &s
     ) noexcept {
-        /**
-        range is 0 to +86,400,000.
-        resolution is 0.001 milli-second.
-        **/
-        int angle = std::stoi(s);
-        angle_ = double(angle) / 3600000.0;
-        angle = std::abs(angle);
-        secs_ = double(angle % 60000) / 1000.0;
-        angle /= 60000;
-        mins_ = angle % 60;
-        degs_ = angle / 60;
+        angle_ = milliSecondsOfArcToDegrees(s);
+        fromAngle();
+    }
+
+    void fromAngle() noexcept {
+        /** positive values. **/
+        double angle = std::abs(angle_);
+
+        /** whole number of degrees. **/
+        degs_ = std::floor(angle);
+
+        /** convert remainder to minutes. **/
+        angle -= double(degs_);
+        angle *= 60.0;
+
+        /** whole number of minutes. **/
+        mins_ = std::floor(angle);
+
+        /** convert remainder to seconds. **/
+        angle -= double(mins_);
+        secs_ = angle * 60.0;
+
+        /** restore sign. **/
+        if (angle_ < 0.0) {
+            degs_ = - degs_;
+        }
     }
 
     std::string toString() noexcept {
@@ -469,7 +498,7 @@ public:
         std::string &response
     ) noexcept {
         auto s = response.substr(0, 4);
-        auto utc = std::stof(s) / 60.0;
+        auto utc = std::stod(s) / 60.0;
         std::stringstream ss;
         /** YYYY/MM/DD **/
         ss<<"20"<<response[5]<<response[6];
@@ -567,9 +596,9 @@ public:
         LOG("result: "<<response);
     }
 
-    void move(
-        int direction,
-        float duration
+    void moveMilliseconds(
+        int dir,
+        double ms
     ) noexcept {
         if (is_connected_ == false) {
             LOG("Ioptron mount is not connected.");
@@ -577,8 +606,8 @@ public:
         }
 
         const char *sdir = "";
-        direction = std::tolower(direction);
-        switch (direction) {
+        dir = std::tolower(dir);
+        switch (dir) {
         case 'n':
             sdir = "north";
             break;
@@ -596,25 +625,113 @@ public:
             return;
         }
 
-        /** convert seconds to milliseconds. **/
-        if (duration <= 0.0) {
+        if (ms < 1.0) {
             LOG("duration must be at least 1 millisecond.");
             return;
         }
 
         /** cap to maximum. **/
-        duration = std::min(duration, float(99999.0));
+        ms = std::min(ms, double(99999.0));
 
-        LOG("slewing "<<sdir<<" for "<<duration<<" milliseconds...");
+        LOG("slewing "<<sdir<<" for "<<ms<<" milliseconds (time)...");
         std::stringstream ss;
-        ss<<":m"<<char(direction)<<"#";
+        ss<<":m"<<char(dir)<<"#";
         port_.write(ss.str().c_str());
 
-        agm::sleep::milliseconds(duration);
+        agm::sleep::milliseconds(ms);
 
         port_.write(":q#");
         auto response = port_.read(1);
         LOG("result: "<<response);
+    }
+
+    void moveArcseconds(
+        int dir,
+        double arcseconds
+    ) noexcept {
+        if (is_connected_ == false) {
+            LOG("Ioptron mount is not connected.");
+            return;
+        }
+
+        const char *sdir = "";
+        dir = std::tolower(dir);
+        switch (dir) {
+        case 'n':
+            sdir = "north";
+            break;
+        case 's':
+            sdir = "south";
+            break;
+        case 'e':
+            sdir = "east";
+            break;
+        case 'w':
+            sdir = "west";
+            break;
+        default:
+            LOG("move direction must be n,s,e,w.");
+            return;
+        }
+
+        LOG("Slewing "<<sdir<<" for "<<arcseconds<<" arcseconds (angle)...");
+
+        /** get current right ascension and declination in degrees. **/
+        port_.write(":GEC#");
+        auto response = port_.read(0);
+        auto dec_s = response.substr(0, 9);
+        auto ra_s = response.substr(9, 8);
+        ArcSeconds dec;
+        ArcSeconds ra;
+        dec.fromDeclination(dec_s);
+        ra.fromRightAscension(ra_s);
+        LOG("Currently at RA: "<<ra.toString()<<" Dec: "<<dec.toString());
+
+        /** north and east are positive. **/
+        double degrees = arcseconds / 3600.0;
+        if (dir == 's' || dir == 'w') {
+            degrees = - degrees;
+        }
+
+        /** slewing north-sorth or east-west. **/
+        if (dir == 'n' || dir == 's') {
+            /** check limits. **/
+            /** new declination. **/
+            dec.angle_ += degrees;
+            dec.fromAngle();
+        } else {
+            /** check limits. **/
+            /** new right ascension. **/
+            ra.angle_ += degrees;
+            ra.fromAngle();
+        }
+
+        /** convert right ascension to centi-arcseconds. **/
+        /** convert declination to milli-seconds-of-arc. **/
+        int centiarcseconds = std::round(dec.angle_ * 360000.0);
+        int milliSecondsOfArc = std::round(ra.angle_ * 240000.0);
+
+        char sign = '+';
+        if (centiarcseconds < 0) {
+            sign = '-';
+            centiarcseconds = - centiarcseconds;
+        }
+
+        std::stringstream ss1;
+        ss1<<":Sd"<<sign<<std::setfill('0')<<std::setw(8)<<centiarcseconds<<"#";
+        port_.write(ss1.str().c_str());
+        response = port_.read(1);
+        std::stringstream ss2;
+        ss2<<":Sr"<<std::noshowpos<<std::setfill('0')<<std::setw(8)<<milliSecondsOfArc<<"#";
+        port_.write(ss2.str().c_str());
+        response = port_.read(1);
+        LOG("Slewing to RA: "<<ra.toString()<<" Dec: "<<dec.toString());
+        port_.write(":MS#");
+        response = port_.read(1);
+        LOG("result: "<<response);
+
+        /** set right ascension and declination. **/
+        /** go there. **/
     }
 
     void setTracking(
@@ -687,12 +804,20 @@ void Ioptron::setSlewingRate(
     impl->setSlewingRate(rate);
 }
 
-void Ioptron::move(
-    int direction,
-    float duration
+void Ioptron::moveMilliseconds(
+    int dir,
+    double ms
 ) noexcept {
     auto impl = (IoptronImpl *) this;
-    impl->move(direction, duration);
+    impl->moveMilliseconds(dir, ms);
+}
+
+void Ioptron::moveArcseconds(
+    int dir,
+    double arcseconds
+) noexcept {
+    auto impl = (IoptronImpl *) this;
+    impl->moveArcseconds(dir, arcseconds);
 }
 
 void Ioptron::setTracking(

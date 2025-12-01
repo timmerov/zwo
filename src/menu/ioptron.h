@@ -37,7 +37,10 @@ public:
     void setSlewingRate(int rate) noexcept;
 
     /** move the mount n,s,e,w for the specified number of milliseconds. **/
-    void move(int direction, float duration) noexcept;
+    void moveMilliseconds(int direction, double ms) noexcept;
+
+    /** move the mount n,s,e,w for the specified number of milliseconds. **/
+    void moveArcseconds(int direction, double ms) noexcept;
 
     /** start stop tracking. **/
     void setTracking(bool enabled) noexcept;

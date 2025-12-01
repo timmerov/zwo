@@ -243,9 +243,10 @@ public:
         LOG("  k [+-01yn]   : toggle collimation circles: "<<settings_->show_circles_);
         LOG("  k x y        : draw collimation circles at x,y: "<<settings_->circles_x_<<","<<settings_->circles_y_);
         LOG("  l file       : load image file");
+        LOG("  ma [nsew] x  : slew n,s,e,w for arcseconds (angle)");
         LOG("  mi           : show mount info");
         LOG("  mh           : slew to home (zero) position");
-        LOG("  mm [nsew] ms : slew n,s,e,w for milliseconds");
+        LOG("  mm [nsew] ms : slew n,s,e,w for milliseconds (time)");
         LOG("  mr#          : set slewing rate 1-9");
         LOG("  mt [+-01yn]  : toggle tracking");
         LOG("  mz           : set zero (home) position");
@@ -398,6 +399,10 @@ public:
     void handleMount() noexcept {
         int ch = popCommandFromInput();
         switch (ch) {
+        case 'a':
+            slewArcseconds();
+            break;
+
         case 'h':
             mount_->slewToHomePosition();
             break;
@@ -406,12 +411,9 @@ public:
             mount_->showStatus();
             break;
 
-        case 'm': {
-            int direction = input_[1];
-            auto s = input_.substr(2);
-            auto duration = std::stof(s);
-            mount_->move(direction, duration);
-        } break;
+        case 'm':
+            slewDuration();
+            break;
 
         case 'r': {
             int rate = input_[1] - '0';
@@ -432,6 +434,44 @@ public:
             LOG("Unknown command for mount.");
             break;
         }
+    }
+
+    void slewArcseconds() {
+        std::stringstream ss;
+        ss << input_;
+        char dir = 0;
+        double arcseconds = 0.0;
+        ss >> dir >> arcseconds;
+        dir = std::tolower(dir);
+        auto pos = std::string("nsew").find(dir);
+        if (pos == std::string::npos) {
+            LOG("MenuThread Slew direction must be one of n,s,e,w.");
+            return;
+        }
+        if (arcseconds == 0.0) {
+            LOG("MenuThread Slew arcseconds is zero.");
+            return;
+        }
+        mount_->moveArcseconds(dir, arcseconds);
+    }
+
+    void slewDuration() {
+        std::stringstream ss;
+        ss << input_;
+        char dir = 0;
+        double ms = 0.0;
+        ss >> dir >> ms;
+        dir = std::tolower(dir);
+        auto pos = std::string("nsew").find(dir);
+        if (pos == std::string::npos) {
+            LOG("MenuThread Slew direction must be one of n,s,e,w.");
+            return;
+        }
+        if (ms <= 0.0) {
+            LOG("MenuThread Slew duration must be greater than zero.");
+            return;
+        }
+        mount_->moveMilliseconds(dir, ms);
     }
 
     /** parse the input as a number. **/
