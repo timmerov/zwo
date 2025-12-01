@@ -626,15 +626,18 @@ public:
         }
 
         if (enabled) {
-            port_.write(":ST1");
+            port_.write(":ST1#");
         } else {
-            port_.write(":ST0");
+            port_.write(":ST0#");
         }
         auto response = port_.read(1);
         LOG("result: "<<response);
     }
 
     void disconnect() noexcept {
+        if (is_connected_ ) {
+            slewToHomePosition();
+        }
         port_.close();
     }
 };

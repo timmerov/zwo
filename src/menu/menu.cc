@@ -248,7 +248,7 @@ public:
         LOG("  mm [nsew] ms : slew n,s,e,w for milliseconds");
         LOG("  mr#          : set slewing rate 1-9");
         LOG("  mt [+-01yn]  : toggle tracking");
-        LOG("  mz           : slew to zero (home) position");
+        LOG("  mz           : set zero (home) position");
         LOG("  p path       : prefix for saved files: "<<settings_->save_path_);
         LOG("  q,esc        : quit");
         LOG("  r [+-01yn]   : toggle fps (frame Rate): "<<settings_->show_fps_);
