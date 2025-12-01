@@ -209,20 +209,24 @@ public:
         LOG("  r [+-01yn]   : toggle fps (frame Rate): "<<settings_->show_fps_);
         LOG("  s file       : save the image (disables stacking).");
         LOG("  t file       : save the raw 16 bit image as tiff.");
+        LOG("  t file#      : save a sequence of 16 bit tiffs where # is replaced by a number.");
+        LOG("  t [+-01yn]   : stop or resume saving 16 bit tiffs.");
         LOG("  x            : run the experiment of the day");
         LOG("  z [+-01yn]   : find and circle stars");
         LOG("  ?            : show help");
     }
 
     void toggleAccumulate() noexcept {
-        bool new_accumulate = getToggleOnOff(settings_->accumulate_);
+        bool new_accumulate = settings_->accumulate_;
+        toggleOnOff(new_accumulate);
         LOG("MenuThread stack (accumulate) images: "<<new_accumulate);
         std::lock_guard<std::mutex> lock(settings_->mutex_);
         settings_->accumulate_ = new_accumulate;
     }
 
     void toggleCaptureBlack() noexcept {
-        bool new_capture_black = getToggleOnOff(settings_->capture_black_);
+        bool new_capture_black = settings_->capture_black_;
+        toggleOnOff(new_capture_black);
         LOG("MenuThread capture black: "<<new_capture_black);
         std::lock_guard<std::mutex> lock(settings_->mutex_);
         settings_->capture_black_ = new_capture_black;
@@ -244,11 +248,15 @@ public:
     }
 
     void toggleAutoExposure() noexcept {
-        bool new_auto_exposure = false;
-        int new_exposure = getInt(-1);
-        if (new_exposure <= 0) {
-            new_exposure = settings_->exposure_;
-            new_auto_exposure = getToggleOnOff(settings_->auto_exposure_);
+        bool new_auto_exposure = settings_->auto_exposure_;
+        int new_exposure = settings_->exposure_;
+
+        bool set = toggleOnOff(new_auto_exposure);
+        if (set == false) {
+            int test_exposure = getInt(new_exposure);
+            if (test_exposure > 0) {
+                new_exposure = test_exposure;
+            }
         }
 
         LOG("MenuThread auto exposure: "<<new_auto_exposure);
@@ -259,7 +267,8 @@ public:
     }
 
     void toggleFocus() noexcept {
-        bool new_focus = getToggleOnOff(settings_->show_focus_);
+        bool new_focus = settings_->show_focus_;
+        toggleOnOff(new_focus);
         LOG("MenuThread focus: "<<new_focus);
         std::lock_guard<std::mutex> lock(settings_->mutex_);
         settings_->show_focus_ = new_focus;
@@ -277,51 +286,69 @@ public:
     }
 
     void toggleHistogram() noexcept {
-        bool new_histogram = getToggleOnOff(settings_->show_histogram_);
+        bool new_histogram = settings_->show_histogram_;
+        toggleOnOff(new_histogram);
         LOG("MenuThread histogram: "<<new_histogram);
         std::lock_guard<std::mutex> lock(settings_->mutex_);
         settings_->show_histogram_ = new_histogram;
     }
 
     void toggleIso() noexcept {
-        bool new_auto_iso = false;
-        int new_iso = getInt(-1);
-        if (new_iso <= 0) {
-            new_iso = settings_->iso_;
-            new_auto_iso = getToggleOnOff(settings_->auto_iso_);
+        bool new_auto_iso = settings_->auto_iso_;
+        int new_iso = settings_->iso_;
+
+        bool set = toggleOnOff(new_auto_iso);
+        if (set == false) {
+            int test_iso = getInt(-1);
+            if (test_iso > 0) {
+                new_iso = test_iso;
+                set = true;
+            }
         }
 
         LOG("MenuThread auto iso: "<<new_auto_iso);
         LOG("MenuThread iso: "<<new_iso);
-        std::lock_guard<std::mutex> lock(settings_->mutex_);
-        settings_->auto_iso_ = new_auto_iso;
-        settings_->iso_ = new_iso;
+        if (set) {
+            std::lock_guard<std::mutex> lock(settings_->mutex_);
+            settings_->auto_iso_ = new_auto_iso;
+            settings_->iso_ = new_iso;
+        }
     }
 
     void showHideCircles() noexcept {
-        std::stringstream ss;
-        ss << input_;
-        char ch;
-        ss >> ch;
-        double x = -2.0;
-        double y = -2.0;
-        ss >> x >> y;
-        if (x < -1.0 || x > +1.0 || y < -1.0 || y > +1.0) {
-            bool new_circles = getToggleOnOff(settings_->show_circles_);
-            LOG("MenuThread stack collimation circles: "<<new_circles);
+        bool new_circles = settings_->show_circles_;
+        bool new_x = settings_->circles_x_;
+        bool new_y = settings_->circles_y_;
+
+        bool set = toggleOnOff(new_circles);
+        if (set == false) {
+            std::stringstream ss;
+            ss << input_;
+            char ch;
+            ss >> ch;
+            double x = -2.0;
+            double y = -2.0;
+            ss >> x >> y;
+            if (x >= -1.0 && x <= +1.0 && y >= -1.0 && y <= +1.0) {
+                new_circles = true;
+                new_x = x;
+                new_y = y;
+                set = true;
+            }
+        }
+
+        LOG("MenuThread show collimation circles: "<<new_circles<<" "<<new_x<<","<<new_y);
+        if (set) {
             std::lock_guard<std::mutex> lock(settings_->mutex_);
             settings_->show_circles_ = new_circles;
-        } else {
-            LOG("MenuThread stack collimation circles: "<<x<<","<<y);
-            std::lock_guard<std::mutex> lock(settings_->mutex_);
-            settings_->show_circles_ = true;
-            settings_->circles_x_ = x;
-            settings_->circles_y_ = y;
+            settings_->circles_x_ = new_x;
+            settings_->circles_y_ = new_y;
         }
     }
 
     void toggleFps() noexcept {
-        bool new_fps = getToggleOnOff(settings_->show_fps_);
+        bool new_fps = settings_->show_fps_;
+        toggleOnOff(new_fps);
         LOG("MenuThread show fps (frame rate): "<<new_fps);
         std::lock_guard<std::mutex> lock(settings_->mutex_);
         settings_->show_fps_ = new_fps;
@@ -388,33 +415,48 @@ public:
     start at the second character of the input.
     look for plus/minus 0/1 y/n.
     which means on/off.
-    if none of those are found, invert the input.
+    if there is nothing then invert the input.
+    and return true.
+    otherwise leave it alone and return false.
     **/
-    bool getToggleOnOff(
-        bool cur_value
+    bool toggleOnOff(
+        bool &cur_value
     ) noexcept {
-        int ch;
-        /** skip white space **/
-        for (int i = 1; ; ++i) {
-            ch = input_[i];
-            if (ch == 0) {
-                /** flip it. **/
-                return !cur_value;
-            }
-            if (std::isspace(ch) == false) {
-                break;
-            }
-        }
-        if (ch == '-' || ch == '0' || ch == 'n') {
-            /** toggle off. **/
-            return false;
-        }
-        if (ch == '+' || ch == '1' || ch == 'y') {
-            /** toggle on. **/
+        std::stringstream ss;
+        ss << input_;
+        char ch;
+        std::string str;
+        std::string rem;
+        ss >> ch >> str >> rem;
+        if (str == "") {
+            /** flip it. **/
+            cur_value = !cur_value;
             return true;
         }
-        /** flip it. **/
-        return !cur_value;
+        if (str.size() > 1 || rem.size() > 0) {
+            /** leave it alone. **/
+            return false;
+        }
+        ch = str[0];
+        switch (ch) {
+            case '-':
+            case '0':
+            case 'n':
+            case 'N':
+                /** toggle off. **/
+                cur_value = false;
+                return true;
+
+            case '+':
+            case '1':
+            case 'y':
+            case 'Y':
+                /** toggle on. **/
+                cur_value = true;
+                return true;
+        }
+        /** leave it alone. **/
+        return false;
     }
 
     /** stop all threads. **/
@@ -525,7 +567,8 @@ public:
     }
 
     void toggleFindStars() noexcept {
-        bool new_find_stars = getToggleOnOff(settings_->find_stars_);
+        bool new_find_stars = settings_->find_stars_;
+        toggleOnOff(new_find_stars);
         LOG("MenuThread find stars: "<<new_find_stars);
         std::lock_guard<std::mutex> lock(settings_->mutex_);
         settings_->find_stars_ = new_find_stars;
