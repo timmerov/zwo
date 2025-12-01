@@ -197,7 +197,7 @@ public:
     bool saveImage8() noexcept;
 
     /** save the raw 16 bit image using tiff. **/
-    bool saveImage16(std::string& filename) noexcept;
+    bool saveImage16(const std::string& filename) noexcept;
 
     /** save the 32 bit image using tiff. **/
     bool saveImage32() noexcept;
@@ -206,6 +206,9 @@ public:
         int src,
         int scale
     ) noexcept;
+
+    /** save star information to text file. **/
+    void saveStars(const std::string& filename) noexcept;
 
     /** ^^^^^ ----- file.cc ----- ^^^^^ **/
 

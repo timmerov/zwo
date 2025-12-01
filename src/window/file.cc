@@ -73,32 +73,7 @@ void WindowThread::autoSaveRawImage() noexcept {
     bool success = saveImage16(filename);
     if (success) {
         LOG("CaptureThread Auto saved raw image to 16 bit tiff file: "<<filename);
-    }
-
-    /** save positions of the stars we found. **/
-    if (find_stars_ == false) {
-        return;
-    }
-    int nstars = star_positions_.size();
-    if (nstars == 0) {
-        return;
-    }
-    pos = filename.rfind('.');
-    if (pos == std::string::npos) {
-        return;
-    }
-    prefix = filename.substr(0, pos);
-    filename = prefix + ".txt";
-    LOG("Writing found star information to file: "<<filename);
-    auto pathname = save_path_ + filename;
-    std::ofstream fs(pathname);
-    fs<<"# Found "<<nstars<<" stars:"<<std::endl;
-    fs<<"# x coordinate on screen: left=0 right="<<img_->width_<<std::endl;
-    fs<<"# y coordinate on screen: top=0 bottom="<<img_->height_<<std::endl;
-    fs<<"# relative brightness: black=0 white=65535"<<std::endl;
-    fs<<std::endl;
-    for (auto&& pos : star_positions_) {
-        fs<<pos.x_<<" "<<pos.y_<<" "<<pos.brightness_<<std::endl;
+        saveStars(filename);
     }
 }
 
@@ -107,6 +82,7 @@ void WindowThread::saveRawImage() noexcept {
     bool success = saveImage16(raw_file_name_);
     if (success) {
         LOG("CaptureThread Saved raw image to 16 bit tiff file: "<<raw_file_name_);
+        saveStars(raw_file_name_);
     }
 }
 
@@ -143,7 +119,7 @@ bool WindowThread::saveImage8() noexcept {
 
 /** save the raw 16 bit image using tiff. **/
 bool WindowThread::saveImage16(
-    std::string& raw_file_name
+    const std::string& raw_file_name
 ) noexcept {
     /** create the tiff file. **/
     std::string filename = save_path_ + raw_file_name;
@@ -295,6 +271,36 @@ int WindowThread::scale32(
     x *= kInt32Max;
     x /= scale;
     return (int) x;
+}
+
+/** save positions of the stars we found. **/
+void WindowThread::saveStars(
+    const std::string& filename
+) noexcept {
+    if (find_stars_ == false) {
+        return;
+    }
+    int nstars = star_positions_.size();
+    if (nstars == 0) {
+        return;
+    }
+    auto pos = filename.rfind('.');
+    if (pos == std::string::npos) {
+        return;
+    }
+    auto prefix = filename.substr(0, pos);
+    auto textname = prefix + ".txt";
+    LOG("Writing found star information to file: "<<textname);
+    auto pathname = save_path_ + textname;
+    std::ofstream fs(pathname);
+    fs<<"# Found "<<nstars<<" stars:"<<std::endl;
+    fs<<"# x coordinate on screen: left=0 right="<<img_->width_<<std::endl;
+    fs<<"# y coordinate on screen: top=0 bottom="<<img_->height_<<std::endl;
+    fs<<"# relative brightness: black=0 white=65535"<<std::endl;
+    fs<<std::endl;
+    for (auto&& pos : star_positions_) {
+        fs<<pos.x_<<" "<<pos.y_<<" "<<pos.brightness_<<std::endl;
+    }
 }
 
 } // WindowThread
