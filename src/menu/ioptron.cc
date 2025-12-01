@@ -13,11 +13,11 @@ but seems to still be implemented.
 
 some commands of interest:
 
-:AG# retutns the guide rate n.nn x sidereal rate
+:AG# returns the guide rate n.nn x sidereal rate
 
-:RGnnn# set tehs guid rate to nnn*0.01x sidereal rate. nnn is 10 to 80.
+:RGnnn# sets the guide rate to nnn*0.01x sidereal rate. nnn is 10 to 80.
 
-:GAS# nnnnnn#
+:GAC# nnnnnn#
 The 1st digit stands for GPS status: 0 means GPS off, 1 means GPS on, 2 means GPS data extracted
 correctly.
 The 2nd digit stands for system status: 0 means stopped, 1 means tracking with PEC disabled, 2
@@ -107,13 +107,24 @@ side for the calibration object. This command is ignored if slewing is in progre
 should be used for initial calibration. It should not be used after the mount has been tracking unless
 it is known that it has not tracked across the meridian.
 
-:Sr HH:MM:SS# 1
+:SrXXXXXXXX# 1
 Defines the commanded Right Ascension, RA. Move, calibrate and park commands operate on the
 most recently defined RA.
+XXXXXXXX is in milliseconds. 24 hours = 360 degrees.
+when pointed at the celestial north pole this depends on the date and time.
+right ascension is controlled by the left and right buttons.
+it rotates the telescope around the celestial axis.
 
-:Sd sDD*MM:SS# 1
+:SdsTTTTTTTT# 1
 Defines the commanded Declination, DEC. Move, calibrate and park commands operate on the most
 recently defined DEC.
+s is sign +/-
+TTTTTTTT is 0.01 arc-seconds.
+1 degree = 60 arc-minutes = 3600 arc-seconds.
+when pointed at the celestial north pole this should be 90 degrees = 324,000 arc-seconds
+= 32,400,000 centi-arc-seconds.
+delcination is controlled by the up and down keys.
+it moves the scope towards or away from the celestial north pole.
 
 :FW1# YYMMDDYYMMDD# hand controller's firmware date.
 
@@ -606,6 +617,23 @@ public:
         LOG("result: "<<response);
     }
 
+    void setTracking(
+        bool enabled
+    ) noexcept {
+        if (is_connected_ == false) {
+            LOG("Ioptron mount is not connected.");
+            return;
+        }
+
+        if (enabled) {
+            port_.write(":ST1");
+        } else {
+            port_.write(":ST0");
+        }
+        auto response = port_.read(1);
+        LOG("result: "<<response);
+    }
+
     void disconnect() noexcept {
         port_.close();
     }
@@ -662,6 +690,13 @@ void Ioptron::move(
 ) noexcept {
     auto impl = (IoptronImpl *) this;
     impl->move(direction, duration);
+}
+
+void Ioptron::setTracking(
+    bool enabled
+) noexcept {
+    auto impl = (IoptronImpl *) this;
+    impl->setTracking(enabled);
 }
 
 void Ioptron::disconnect() noexcept {

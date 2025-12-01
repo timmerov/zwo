@@ -30,6 +30,7 @@ public:
     SettingsBuffer *settings_ = nullptr;
     std::string input_;
     Ioptron *mount_ = nullptr;
+    bool is_tracking_ = false;
 
     MenuThread(
         SettingsBuffer *settings_buffer
@@ -91,7 +92,7 @@ public:
         if (input_.size() == 0) {
             return;
         }
-        int ch = std::tolower(input_[0]);
+        int ch = popCommandFromInput();
         switch (ch) {
         case 'a':
             toggleAccumulate();
@@ -184,6 +185,27 @@ public:
         }
     }
 
+    int popCommandFromInput() noexcept {
+        int len = input_.size();
+        int pos = 0;
+        int ch = 0;
+        for (; pos < len; ++pos) {
+            ch = input_[pos];
+            if (ch == '\n') {
+                return 0;
+            }
+            if (std::isspace(ch)) {
+                continue;
+            }
+            break;
+        }
+        if (pos >= len) {
+            return 0;
+        }
+        input_.erase(0, pos + 1);
+        return ch;
+    }
+
     void showMenu() noexcept {
         LOG("Menu (not case sensitive unless specified):");
         LOG("  a [+-01yn]   : stack (accumulate) images: "<<settings_->accumulate_);
@@ -203,6 +225,7 @@ public:
         LOG("  mh           : slew to home (zero) position");
         LOG("  mm [nsew] ms : slew n,s,e,w for milliseconds");
         LOG("  mr#          : set slewing rate 1-9");
+        LOG("  mt [+-01yn]  : toggle tracking");
         LOG("  mz           : slew to zero (home) position");
         LOG("  p path       : prefix for saved files: "<<settings_->save_path_);
         LOG("  q,esc        : quit");
@@ -235,8 +258,6 @@ public:
     void setColorBalance() noexcept {
         std::stringstream ss;
         ss << input_;
-        char ch;
-        ss >> ch;
         double new_balance_red = settings_->balance_red_;
         double new_balance_blue = settings_->balance_blue_;
         ss >> new_balance_red >> new_balance_blue;
@@ -324,8 +345,6 @@ public:
         if (set == false) {
             std::stringstream ss;
             ss << input_;
-            char ch;
-            ss >> ch;
             double x = -2.0;
             double y = -2.0;
             ss >> x >> y;
@@ -355,7 +374,7 @@ public:
     }
 
     void handleMount() noexcept {
-        int ch = std::tolower(input_[1]);
+        int ch = popCommandFromInput();
         switch (ch) {
         case 'h':
             mount_->slewToHomePosition();
@@ -366,15 +385,21 @@ public:
             break;
 
         case 'm': {
-            int direction = input_[2];
-            auto s = input_.substr(3);
+            int direction = input_[1];
+            auto s = input_.substr(2);
             auto duration = std::stof(s);
             mount_->move(direction, duration);
         } break;
 
         case 'r': {
-            int rate = input_[2] - '0';
+            int rate = input_[1] - '0';
             mount_->setSlewingRate(rate);
+        } break;
+
+        case 't': {
+            toggleOnOff(is_tracking_);
+            LOG("MenuThread tracking: "<<is_tracking_);
+            mount_->setTracking(is_tracking_);
         } break;
 
         case 'z':
@@ -393,9 +418,8 @@ public:
     ) noexcept {
         std::stringstream ss;
         ss << input_;
-        char ch;
         int value = default_value;
-        ss >> ch >> value;
+        ss >> value;
         return value;
     }
 
@@ -405,9 +429,8 @@ public:
     ) noexcept {
         std::stringstream ss;
         ss << input_;
-        char ch;
         double value = default_value;
-        ss >> ch >> value;
+        ss >> value;
         return value;
     }
 
@@ -415,9 +438,8 @@ public:
     std::string getString() noexcept {
         std::stringstream ss;
         ss <<input_;
-        char ch;
         std::string str;
-        ss >> ch >> str;
+        ss >> str;
         return str;
     }
 
@@ -434,10 +456,9 @@ public:
     ) noexcept {
         std::stringstream ss;
         ss << input_;
-        char ch;
         std::string str;
         std::string rem;
-        ss >> ch >> str >> rem;
+        ss >> str >> rem;
         if (str == "") {
             /** flip it. **/
             cur_value = !cur_value;
@@ -447,7 +468,7 @@ public:
             /** leave it alone. **/
             return false;
         }
-        ch = str[0];
+        int ch = str[0];
         switch (ch) {
             case '-':
             case '0':

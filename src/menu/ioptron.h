@@ -39,5 +39,8 @@ public:
     /** move the mount n,s,e,w for the specified number of milliseconds. **/
     void move(int direction, float duration) noexcept;
 
+    /** start stop tracking. **/
+    void setTracking(bool enabled) noexcept;
+
     void disconnect() noexcept;
 };
