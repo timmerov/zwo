@@ -20,6 +20,36 @@ use this code in the code block:
     std::lock_guard<std::mutex> lock(mutex_);
 **/
 
+class ArcSeconds {
+public:
+    ArcSeconds() noexcept = default;
+    ~ArcSeconds() noexcept = default;
+
+    /** initialize from ioptron string. **/
+    void fromLongitude(std::string &s) noexcept;
+
+    /** initialize from ioptron string. **/
+    void fromLatitude(std::string &s) noexcept;
+
+    /** initialize from ioptron string. **/
+    void fromDeclination(std::string &s) noexcept;
+
+    /** initialize from ioptron string. **/
+    void fromRightAscension(std::string &s) noexcept;
+
+    /** calculate degs mins secs from angle. **/
+    void fromAngle() noexcept;
+
+    /** angle.xxx +/-HH MM' SS.sss" **/
+    std::string toString() noexcept;
+
+    double angle_ = 0.0;
+    int degs_ = 0;
+    int mins_ = 0;
+    double secs_ = 0.0;
+    char east_west_ = 0;
+};
+
 class Settings {
 public:
     Settings() noexcept = default;
@@ -48,6 +78,8 @@ public:
     std::string raw_file_name_;
     std::string save_path_;
     std::string input_;
+    ArcSeconds right_ascension_;
+    ArcSeconds declination_;
 };
 
 class SettingsBuffer : public Settings {

@@ -145,6 +145,7 @@ it moves the scope towards or away from the celestial north pole.
 
 #include "ioptron.h"
 
+
 namespace {
 
 double centiarcsecondsToDegrees(
@@ -173,117 +174,21 @@ double milliSecondsOfArcToDegrees(
     return angle;
 }
 
-class ArcSeconds {
-public:
-    ArcSeconds() noexcept = default;
-    ~ArcSeconds() noexcept = default;
-
-    void fromLongitude(
-        std::string &s
-    ) noexcept {
-        /**
-        range is -648,000 to +648,000.
-        east is positive.
-        resolution is 1 arc-second.
-        **/
-        int angle = std::stoi(s);
-        angle_ = double(angle) / 3600.0;
-        angle = std::abs(angle);
-        secs_ = double(angle % 60);
-        angle /= 60;
-        mins_ = angle % 60;
-        degs_ = angle / 60;
-
-        /** set E/W for pretty print. **/
-        if (angle_ >= 0) {
-            east_west_ = 'E';
-        } else {
-            east_west_ = 'W';
-        }
-    }
-
-    void fromLatitude(
-        std::string &s
-    ) noexcept {
-        /**
-        range is 0 to 648,000.
-        resolution is 1 arc-second.
-        value is +90 degrees.
-        **/
-        int angle = std::stoi(s);
-        angle_ = double(angle) / 3600.0;
-        angle = std::abs(angle);
-        secs_ = double(angle % 60);
-        angle /= 60;
-        mins_ = angle % 60;
-        degs_ = angle / 60;
-
-        /** remove bias. **/
-        angle_ -= 90.0;
-        degs_ -= 90;
-    }
-
-    void fromDeclination(
-        std::string &s
-    ) noexcept {
-        angle_ = centiarcsecondsToDegrees(s);
-        fromAngle();
-    }
-
-    void fromRightAscension(
-        std::string &s
-    ) noexcept {
-        angle_ = milliSecondsOfArcToDegrees(s);
-        fromAngle();
-    }
-
-    void fromAngle() noexcept {
-        /** positive values. **/
-        double angle = std::abs(angle_);
-
-        /** whole number of degrees. **/
-        degs_ = std::floor(angle);
-
-        /** convert remainder to minutes. **/
-        angle -= double(degs_);
-        angle *= 60.0;
-
-        /** whole number of minutes. **/
-        mins_ = std::floor(angle);
-
-        /** convert remainder to seconds. **/
-        angle -= double(mins_);
-        secs_ = angle * 60.0;
-
-        /** restore sign. **/
-        if (angle_ < 0.0) {
-            degs_ = - degs_;
-        }
-    }
-
-    std::string toString() noexcept {
-        std::stringstream ss;
-        ss<<angle_<<" "<<degs_<<" "<<mins_<<"' "<<secs_<<"\"";
-        if (east_west_) {
-            ss<<" "<<east_west_;
-        }
-        return ss.str();
-    }
-
-    double angle_ = 0.0;
-    int degs_ = 0;
-    int mins_ = 0;
-    double secs_ = 0.0;
-    char east_west_ = 0;
-};
-
 class IoptronImpl : public Ioptron {
 public:
-    IoptronImpl() noexcept = default;
+    IoptronImpl(
+        SettingsBuffer *settings
+    ) noexcept {
+        settings_ = settings;
+    }
+
     virtual ~IoptronImpl() noexcept = default;
 
+    SettingsBuffer *settings_ = nullptr;
     SerialConnection port_;
     bool is_connected_ = false;
+    ArcSeconds ra_;
+    ArcSeconds dec_;
 
     bool connect() noexcept {
         /** open the serial port. **/
@@ -367,9 +272,9 @@ public:
         response = port_.read(0);
         showTime(response);
 
-        port_.write(":GEC#");
-        response = port_.read(0);
-        showRightAscensionDeclination(response);
+        getRightAscensionDeclination();
+        shareRightAscensionDeclination();
+        showRightAscensionDeclination();
 
         port_.write(":GAC#");
         response = port_.read(0);
@@ -518,20 +423,28 @@ public:
         LOG("IOptron Time: "<<ss.str());
     }
 
-    void showRightAscensionDeclination(
-        std::string &response
-    ) noexcept {
-        ArcSeconds ra;
-        ArcSeconds dec;
-
+    /** get ra and dec from mount. **/
+    void getRightAscensionDeclination() noexcept {
+        port_.write(":GEC#");
+        auto response = port_.read(0);
         auto s = response.substr(9, 8);
-        ra.fromRightAscension(s);
-        s = ra.toString();
+        ra_.fromRightAscension(s);
+        s = response.substr(0, 9);
+        dec_.fromDeclination(s);
+    }
+
+    /** share ra and dec with other threads. **/
+    void shareRightAscensionDeclination() noexcept {
+        std::lock_guard<std::mutex> lock(settings_->mutex_);
+        settings_->right_ascension_ = ra_;
+        settings_->declination_ = dec_;
+    }
+
+    void showRightAscensionDeclination() noexcept {
+        auto s = ra_.toString();
         LOG("IOptron Status Right Ascension: "<<s);
 
-        s = response.substr(0, 9);
-        dec.fromDeclination(s);
-        s = dec.toString();
+        s = dec_.toString();
         LOG("IOptron Status Declination: "<<s);
     }
 
@@ -643,6 +556,10 @@ public:
         port_.write(":q#");
         auto response = port_.read(1);
         LOG("result: "<<response);
+
+        /** update ra and dec. **/
+        getRightAscensionDeclination();
+        shareRightAscensionDeclination();
     }
 
     void moveArcseconds(
@@ -677,15 +594,8 @@ public:
         LOG("Slewing "<<sdir<<" for "<<arcseconds<<" arcseconds (angle)...");
 
         /** get current right ascension and declination in degrees. **/
-        port_.write(":GEC#");
-        auto response = port_.read(0);
-        auto dec_s = response.substr(0, 9);
-        auto ra_s = response.substr(9, 8);
-        ArcSeconds dec;
-        ArcSeconds ra;
-        dec.fromDeclination(dec_s);
-        ra.fromRightAscension(ra_s);
-        LOG("Currently at RA: "<<ra.toString()<<" Dec: "<<dec.toString());
+        getRightAscensionDeclination();
+        LOG("Currently at RA: "<<ra_.toString()<<" Dec: "<<dec_.toString());
 
         /** north and east are positive. **/
         double degrees = arcseconds / 3600.0;
@@ -697,19 +607,22 @@ public:
         if (dir == 'n' || dir == 's') {
             /** check limits. **/
             /** new declination. **/
-            dec.angle_ += degrees;
-            dec.fromAngle();
+            dec_.angle_ += degrees;
+            dec_.fromAngle();
         } else {
             /** check limits. **/
             /** new right ascension. **/
-            ra.angle_ += degrees;
-            ra.fromAngle();
+            ra_.angle_ += degrees;
+            ra_.fromAngle();
         }
+
+        /** share the new ra and dec. **/
+        shareRightAscensionDeclination();
 
         /** convert right ascension to centi-arcseconds. **/
         /** convert declination to milli-seconds-of-arc. **/
-        int centiarcseconds = std::round(dec.angle_ * 360000.0);
-        int milliSecondsOfArc = std::round(ra.angle_ * 240000.0);
+        int centiarcseconds = std::round(dec_.angle_ * 360000.0);
+        int milliSecondsOfArc = std::round(ra_.angle_ * 240000.0);
 
         char sign = '+';
         if (centiarcseconds < 0) {
@@ -717,21 +630,21 @@ public:
             centiarcseconds = - centiarcseconds;
         }
 
+        /** set ra and decl. **/
         std::stringstream ss1;
         ss1<<":Sd"<<sign<<std::setfill('0')<<std::setw(8)<<centiarcseconds<<"#";
         port_.write(ss1.str().c_str());
-        response = port_.read(1);
+        auto response = port_.read(1);
         std::stringstream ss2;
         ss2<<":Sr"<<std::noshowpos<<std::setfill('0')<<std::setw(8)<<milliSecondsOfArc<<"#";
         port_.write(ss2.str().c_str());
         response = port_.read(1);
-        LOG("Slewing to RA: "<<ra.toString()<<" Dec: "<<dec.toString());
+
+        /** go there. **/
+        LOG("Slewing to RA: "<<ra_.toString()<<" Dec: "<<dec_.toString());
         port_.write(":MS#");
         response = port_.read(1);
         LOG("result: "<<response);
-
-        /** set right ascension and declination. **/
-        /** go there. **/
     }
 
     void setTracking(
@@ -760,14 +673,108 @@ public:
 };
 }
 
+void ArcSeconds::fromLongitude(
+    std::string &s
+) noexcept {
+    /**
+    range is -648,000 to +648,000.
+    east is positive.
+    resolution is 1 arc-second.
+    **/
+    int angle = std::stoi(s);
+    angle_ = double(angle) / 3600.0;
+    angle = std::abs(angle);
+    secs_ = double(angle % 60);
+    angle /= 60;
+    mins_ = angle % 60;
+    degs_ = angle / 60;
+
+    /** set E/W for pretty print. **/
+    if (angle_ >= 0) {
+        east_west_ = 'E';
+    } else {
+        east_west_ = 'W';
+    }
+}
+
+void ArcSeconds::fromLatitude(
+    std::string &s
+) noexcept {
+    /**
+    range is 0 to 648,000.
+    resolution is 1 arc-second.
+    value is +90 degrees.
+    **/
+    int angle = std::stoi(s);
+    angle_ = double(angle) / 3600.0;
+    angle = std::abs(angle);
+    secs_ = double(angle % 60);
+    angle /= 60;
+    mins_ = angle % 60;
+    degs_ = angle / 60;
+
+    /** remove bias. **/
+    angle_ -= 90.0;
+    degs_ -= 90;
+}
+
+void ArcSeconds::fromDeclination(
+    std::string &s
+) noexcept {
+    angle_ = centiarcsecondsToDegrees(s);
+    fromAngle();
+}
+
+void ArcSeconds::fromRightAscension(
+    std::string &s
+) noexcept {
+    angle_ = milliSecondsOfArcToDegrees(s);
+    fromAngle();
+}
+
+void ArcSeconds::fromAngle() noexcept {
+    /** positive values. **/
+    double angle = std::abs(angle_);
+
+    /** whole number of degrees. **/
+    degs_ = std::floor(angle);
+
+    /** convert remainder to minutes. **/
+    angle -= double(degs_);
+    angle *= 60.0;
+
+    /** whole number of minutes. **/
+    mins_ = std::floor(angle);
+
+    /** convert remainder to seconds. **/
+    angle -= double(mins_);
+    secs_ = angle * 60.0;
+
+    /** restore sign. **/
+    if (angle_ < 0.0) {
+        degs_ = - degs_;
+    }
+}
+
+std::string ArcSeconds::toString() noexcept {
+    std::stringstream ss;
+    ss<<angle_<<" "<<degs_<<" "<<mins_<<"' "<<secs_<<"\"";
+    if (east_west_) {
+        ss<<" "<<east_west_;
+    }
+    return ss.str();
+}
+
 Ioptron::Ioptron() noexcept {
 }
 
 Ioptron::~Ioptron() noexcept {
 }
 
-Ioptron *Ioptron::create() noexcept {
-    auto impl = new(std::nothrow) IoptronImpl;
+Ioptron *Ioptron::create(
+    SettingsBuffer *settings
+) noexcept {
+    auto impl = new(std::nothrow) IoptronImpl(settings);
     return impl;
 }
 

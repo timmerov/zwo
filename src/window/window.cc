@@ -250,6 +250,8 @@ void WindowThread::copySettings() noexcept {
     if (settings_->save_path_.size() > 0) {
         save_path_ = std::move(settings_->save_path_);
     }
+    right_ascension_ = settings_->right_ascension_;
+    declination_ = settings_->declination_;
     /**
     std::move means raid my resources.
     it does not mean clear them on the way out.

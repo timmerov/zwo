@@ -288,6 +288,11 @@ void WindowThread::saveStars(
     if (pos == std::string::npos) {
         return;
     }
+
+    /** get the ra and dec from the shared buffer. **/
+    auto ra = settings_->right_ascension_.toString();
+    auto dec = settings_->declination_.toString();
+
     auto prefix = filename.substr(0, pos);
     auto textname = prefix + ".txt";
     LOG("Writing found star information to file: "<<textname);
@@ -297,6 +302,8 @@ void WindowThread::saveStars(
     fs<<"# x coordinate on screen: left=0 right="<<img_->width_<<std::endl;
     fs<<"# y coordinate on screen: top=0 bottom="<<img_->height_<<std::endl;
     fs<<"# relative brightness: black=0 white=65535"<<std::endl;
+    fs<<"# Right ascension: "<<ra<<std::endl;
+    fs<<"# Declination: "<<dec<<std::endl;
     fs<<std::endl;
     for (auto&& pos : star_positions_) {
         fs<<pos.x_<<" "<<pos.y_<<" "<<pos.brightness_<<std::endl;

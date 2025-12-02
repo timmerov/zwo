@@ -45,7 +45,7 @@ public:
 
     virtual void begin() noexcept {
         LOG("MenuThread");
-        mount_ = Ioptron::create();
+        mount_ = Ioptron::create(settings_);
         mount_->connect();
         loadConfigFile("zwo.cfg");
     }

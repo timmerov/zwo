@@ -8,6 +8,8 @@ drive the ioptron smarteq pro(+) mount.
 
 #include <cstring>
 
+#include <shared/settings_buffer.h>
+
 #include "serial.h"
 
 
@@ -18,7 +20,7 @@ public:
     Ioptron(const Ioptron &) = delete;
     virtual ~Ioptron() noexcept;
 
-    static Ioptron *create() noexcept;
+    static Ioptron *create(SettingsBuffer *settings) noexcept;
 
     bool connect() noexcept;
 
