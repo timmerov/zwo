@@ -46,6 +46,7 @@ public:
     cv::Mat gray8_;
     cv::Mat laplace_;
     cv::Mat rgb8_gamma_;
+    cv::Mat cropped8_;
     double base_stddev_ = 0.0;
     int gamma_max_ = 0;
     agm::uint8 *gamma_table_ = nullptr;

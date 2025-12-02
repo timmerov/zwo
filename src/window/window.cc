@@ -139,10 +139,15 @@ WindowThread::WindowThread(
     applyDisplayGamma();
 
     /** crop it. **/
-    cv::Mat cropped = rgb8_gamma_(aoi_);
+    cropped8_ = rgb8_gamma_(aoi_);
+
+    /** ensure it's contiguous because we're using opengl. **/
+    if (cropped8_.isContinuous() == false) {
+        cropped8_ = cropped8_.clone();
+    }
 
     /** show it. **/
-    cv::imshow(win_name_, cropped);
+    cv::imshow(win_name_, cropped8_);
 
     /** save the file. **/
     saveImage();
