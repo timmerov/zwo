@@ -599,14 +599,22 @@ public:
 
         /** slewing north-sorth or east-west. **/
         if (dir == 'n' || dir == 's') {
-            /** check limits. **/
             /** new declination. **/
             dec_.angle_ += degrees;
+            /** check limits. **/
+            dec_.angle_ = std::min(dec_.angle_, +90.0);
+            dec_.angle_ = std::max(dec_.angle_, -90.0);
             dec_.fromAngle();
         } else {
-            /** check limits. **/
             /** new right ascension. **/
             ra_.angle_ += degrees;
+            /** check limits. **/
+            while (ra_.angle_ < 0.0) {
+                ra_.angle_ += 360.0;
+            }
+            while (ra_.angle_ >= 360.0) {
+                ra_.angle_ -= 360.0;
+            }
             ra_.fromAngle();
         }
 

@@ -516,6 +516,7 @@ public:
             return;
         }
         mount_->moveArcseconds(dir, arcseconds);
+        is_tracking_ = true;
     }
 
     void slewDuration() {
