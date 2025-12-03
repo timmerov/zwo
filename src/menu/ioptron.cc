@@ -151,11 +151,7 @@ namespace {
 double centiarcsecondsToDegrees(
     const std::string& s
 ) noexcept {
-    /**
-    range is -32,400,000 to +32,400,000.
-    resolution is 0.01 arc-second.
-    scale factor is 90 degrees / 32,400,000 = 1 / 360,000.
-    **/
+    /** 100 centi * 60 arcseconds * 60 arcminutes = 360,000 **/
     int centiarcseconds = std::stoi(s);
     double angle = double(centiarcseconds) / 360000.0;
     return angle;
@@ -164,13 +160,11 @@ double centiarcsecondsToDegrees(
 double milliSecondsOfArcToDegrees(
     const std::string& s
 ) noexcept {
-    /**
-    range is 0 to +86,400,000.
-    resolution is 0.001 seconds of arc.
-    scale factor is 360 degrees / 86,400,000 = 1 / 240,000.
-    **/
+    /** 1000 milli * 60 arcseconds * 60 arcminutes = 3,600,000 **/
     int milliSecondsOfArc = std::stoi(s);
-    double angle = double(milliSecondsOfArc) / 240000.0;
+    double hours = double(milliSecondsOfArc) / 3600000.0;
+    /** 360 degrees = 24 hours **/
+    double angle = hours * 360.0 / 24.0;
     return angle;
 }
 
@@ -619,10 +613,15 @@ public:
         /** share the new ra and dec. **/
         shareRightAscensionDeclination();
 
-        /** convert right ascension to centi-arcseconds. **/
-        /** convert declination to milli-seconds-of-arc. **/
+        /** convert ra angle to hours. **/
+        double ra_hours = ra_.angle_ * 24.0 / 360.0;
+
+        /** convert declination in degrees to centi-arcseconds. **/
+        /** convert right ascension in hours to milli-seconds-of-arc. **/
+        /** 60 arcseconds * 60 arcminutes = 360 */
+        /** times 100 for centi or 1000 for milli. **/
         int centiarcseconds = std::round(dec_.angle_ * 360000.0);
-        int milliSecondsOfArc = std::round(ra_.angle_ * 240000.0);
+        int milliSecondsOfArc = std::round(ra_hours * 3600000.0);
 
         char sign = '+';
         if (centiarcseconds < 0) {
@@ -630,11 +629,13 @@ public:
             centiarcseconds = - centiarcseconds;
         }
 
-        /** set ra and decl. **/
+        /** set declination in centi-arcseconds (from degrees). **/
         std::stringstream ss1;
         ss1<<":Sd"<<sign<<std::setfill('0')<<std::setw(8)<<centiarcseconds<<"#";
         port_.write(ss1.str().c_str());
         auto response = port_.read(1);
+
+        /** set ra in milli-seconds-of-arc (from hours). **/
         std::stringstream ss2;
         ss2<<":Sr"<<std::noshowpos<<std::setfill('0')<<std::setw(8)<<milliSecondsOfArc<<"#";
         port_.write(ss2.str().c_str());

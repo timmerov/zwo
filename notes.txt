@@ -1,5 +1,11 @@
 
 - camera and telescope have a field of view of about 20" = 0.3 degrees.
+- the width of the image is 1936 pixels which is about 1894" = 31' 34" = 0.298 degrees
+- the height of the image is 1072 pixels which is about 1072" = 17' 52" = 0.526 degrees
+- stellarium right ascension seems to be off by an hour. daylight savings time?
+- the width is about the distance from polaris to the celestial north pole.
+- polaris saturates at about 280 ms.
+- magnitude 11+ stars show up in 1.0s exposure. quite clear in 2.0s. 
 
 - focuser distance setting is about 28mm for stars.
 that's the distance between the edge of the camera and the edge of the focuser housing.

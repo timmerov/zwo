@@ -68,12 +68,14 @@ public:
     void get_input() noexcept {
         /** don't get more input if we already have input. **/
         if (input_lines_.size() > 0) {
+            LOG("existing input: \""<<input_lines_<<"\"");
             return;
         }
 
         /** get input from stdin. **/
         input_lines_ = nbi_.get();
         if (input_lines_.size()) {
+            LOG("keyboard input: \""<<input_lines_<<"\"");
             return;
         }
 
@@ -88,6 +90,7 @@ public:
             settings_->input_.clear();
         }
         if (input_lines_.size()) {
+            LOG("thread input: \""<<input_lines_<<"\"");
             return;
         }
     }
