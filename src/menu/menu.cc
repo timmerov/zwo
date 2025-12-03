@@ -4,6 +4,28 @@ Copyright (C) 2012-2025 tim cotter. All rights reserved.
 
 /**
 run the menu thread.
+
+this thread produces most of the data in the settings buffer.
+there are a small number of exceptions.
+we assume all other threads do not modify anything other than strings.
+we are a bit lazy when it comes to looking at the data.
+if we are the producer then we can take a shortcut:
+
+    x = settings->x;
+    x = new_x;
+    {
+        lock_guard lock;
+        settings->x = x;
+    }
+
+we always use the lock when changing the settings for consistency.
+even when we don't need to like in the example where updating x is atomic.
+obviously we cannot take this shortcut when
+looking at data that might be modified by other threads.
+
+exceptions:
+    input
+    right ascension, declination
 **/
 
 #include <algorithm>
@@ -34,9 +56,9 @@ public:
     bool is_tracking_ = false;
 
     MenuThread(
-        SettingsBuffer *settings_buffer
+        SettingsBuffer *settings
     ) noexcept : agm::Thread("MenuThread") {
-        settings_ = settings_buffer;
+        settings_ = settings;
     }
 
     virtual ~MenuThread() noexcept {
@@ -226,53 +248,61 @@ public:
     }
 
     void showMenu() noexcept {
-        LOG("Menu (not case sensitive unless specified):");
-        LOG("  a [+-01yn]   : stack (accumulate) images: "<<settings_->accumulate_);
-        LOG("  b [+-01yn]   : toggle capture black: "<<settings_->capture_black_);
-        LOG("  c red blue   : set color balance: r="<<settings_->balance_red_<<" b="<<settings_->balance_blue_);
-        LOG("  e [+-01yn]   : toggle auto exposure: "<<settings_->auto_exposure_);
-        LOG("  e usecs      : set exposure microseconds (disables auto): "<<settings_->exposure_);
-        LOG("  f [+-01yn]   : toggle manual focus helper: "<<settings_->show_focus_);
-        LOG("  g pwr        : set gamma (1.0): "<<settings_->gamma_);
-        LOG("  h [+-01yn]   : toggle histogram: "<<settings_->show_histogram_);
-        LOG("  i [+-01yn]   : toggle auto iso linear scaling: "<<settings_->auto_iso_);
-        LOG("  i iso        : set iso linear scaling [100 none] (disables auto): "<<settings_->iso_);
-        LOG("  k [+-01yn]   : toggle collimation circles: "<<settings_->show_circles_);
-        LOG("  k x y        : draw collimation circles at x,y: "<<settings_->circles_x_<<","<<settings_->circles_y_);
-        LOG("  l file       : load image file");
-        LOG("  ma [nsew] x  : slew n,s,e,w for arcseconds (angle)");
-        LOG("  mi           : show mount info");
-        LOG("  mh           : slew to home (zero) position");
-        LOG("  mm [nsew] ms : slew n,s,e,w for milliseconds (time)");
-        LOG("  mr#          : set slewing rate 1-9");
-        LOG("  mt [+-01yn]  : toggle tracking");
-        LOG("  mz           : set zero (home) position");
-        LOG("  p path       : prefix for saved files: "<<settings_->save_path_);
-        LOG("  q,esc        : quit");
-        LOG("  r [+-01yn]   : toggle fps (frame Rate): "<<settings_->show_fps_);
-        LOG("  s file       : save the image (disables stacking).");
-        LOG("  t file       : save the raw 16 bit image as tiff.");
-        LOG("  t file#      : save a sequence of 16 bit tiffs where # is replaced by a number.");
-        LOG("  t [+-01yn]   : stop or resume saving 16 bit tiffs.");
-        LOG("  x            : run the experiment of the day");
-        LOG("  z [+-01yn]   : find and circle stars");
-        LOG("  ?            : show help");
+        {
+            std::lock_guard(std::mutex) lock(settings_->mutex_);
+
+            LOG("Menu (not case sensitive unless specified):");
+            LOG("  a [+-01yn]   : stack (accumulate) images: "<<settings_->accumulate_);
+            LOG("  b [+-01yn]   : toggle capture black: "<<settings_->capture_black_);
+            LOG("  c red blue   : set color balance: r="<<settings_->balance_red_<<" b="<<settings_->balance_blue_);
+            LOG("  e [+-01yn]   : toggle auto exposure: "<<settings_->auto_exposure_);
+            LOG("  e usecs      : set exposure microseconds (disables auto): "<<settings_->exposure_);
+            LOG("  f [+-01yn]   : toggle manual focus helper: "<<settings_->show_focus_);
+            LOG("  g pwr        : set gamma (1.0): "<<settings_->gamma_);
+            LOG("  h [+-01yn]   : toggle histogram: "<<settings_->show_histogram_);
+            LOG("  i [+-01yn]   : toggle auto iso linear scaling: "<<settings_->auto_iso_);
+            LOG("  i iso        : set iso linear scaling [100 none] (disables auto): "<<settings_->iso_);
+            LOG("  k [+-01yn]   : toggle collimation circles: "<<settings_->show_circles_);
+            LOG("  k x y        : draw collimation circles at x,y: "<<settings_->circles_x_<<","<<settings_->circles_y_);
+            LOG("  l file       : load image file");
+            LOG("  ma [nsew] x  : slew n,s,e,w for arcseconds (angle)");
+            LOG("  mi           : show mount info");
+            LOG("  mh           : slew to home (zero) position");
+            LOG("  mm [nsew] ms : slew n,s,e,w for milliseconds (time)");
+            LOG("  mr#          : set slewing rate 1-9");
+            LOG("  mt [+-01yn]  : toggle tracking: "<<is_tracking_);
+            LOG("  mz           : set zero (home) position");
+            LOG("  p path       : prefix for saved files: "<<settings_->save_path_);
+            LOG("  q,esc        : quit");
+            LOG("  r [+-01yn]   : toggle fps (frame Rate): "<<settings_->show_fps_);
+            LOG("  s file       : save the displayed image (disables stacking).");
+            LOG("  t file       : save the raw 16 bit image as tiff.");
+            LOG("  t file#      : save a sequence of 16 bit tiffs where # is replaced by a number.");
+            LOG("  t [+-01yn]   : stop or resume saving 16 bit tiffs: "<<settings_->auto_save_);
+            LOG("  x            : run the experiment of the day");
+            LOG("  z [+-01yn]   : find and circle stars: "<<settings_->find_stars_);
+            LOG("  ?            : show help");
+        }
     }
 
     void toggleAccumulate() noexcept {
         bool new_accumulate = settings_->accumulate_;
         toggleOnOff(new_accumulate);
         LOG("MenuThread stack (accumulate) images: "<<new_accumulate);
-        std::lock_guard<std::mutex> lock(settings_->mutex_);
-        settings_->accumulate_ = new_accumulate;
+        {
+            std::lock_guard<std::mutex> lock(settings_->mutex_);
+            settings_->accumulate_ = new_accumulate;
+        }
     }
 
     void toggleCaptureBlack() noexcept {
         bool new_capture_black = settings_->capture_black_;
         toggleOnOff(new_capture_black);
         LOG("MenuThread capture black: "<<new_capture_black);
-        std::lock_guard<std::mutex> lock(settings_->mutex_);
-        settings_->capture_black_ = new_capture_black;
+        {
+            std::lock_guard<std::mutex> lock(settings_->mutex_);
+            settings_->capture_black_ = new_capture_black;
+        }
     }
 
     void setColorBalance() noexcept {
@@ -282,10 +312,11 @@ public:
         double new_balance_blue = settings_->balance_blue_;
         ss >> new_balance_red >> new_balance_blue;
         LOG("ManeuThread color balance: r="<<new_balance_red<<" b="<<new_balance_blue);
-
-        std::lock_guard<std::mutex> lock(settings_->mutex_);
-        settings_->balance_red_ = new_balance_red;
-        settings_->balance_blue_ = new_balance_blue;
+        {
+            std::lock_guard<std::mutex> lock(settings_->mutex_);
+            settings_->balance_red_ = new_balance_red;
+            settings_->balance_blue_ = new_balance_blue;
+        }
     }
 
     void toggleAutoExposure() noexcept {
@@ -302,17 +333,21 @@ public:
 
         LOG("MenuThread auto exposure: "<<new_auto_exposure);
         LOG("MenuThread exposure: "<<new_exposure);
-        std::lock_guard<std::mutex> lock(settings_->mutex_);
-        settings_->auto_exposure_ = new_auto_exposure;
-        settings_->exposure_ = new_exposure;
+        {
+            std::lock_guard<std::mutex> lock(settings_->mutex_);
+            settings_->auto_exposure_ = new_auto_exposure;
+            settings_->exposure_ = new_exposure;
+        }
     }
 
     void toggleFocus() noexcept {
         bool new_focus = settings_->show_focus_;
         toggleOnOff(new_focus);
         LOG("MenuThread focus: "<<new_focus);
-        std::lock_guard<std::mutex> lock(settings_->mutex_);
-        settings_->show_focus_ = new_focus;
+        {
+            std::lock_guard<std::mutex> lock(settings_->mutex_);
+            settings_->show_focus_ = new_focus;
+        }
     }
 
     void toggleGamma() noexcept {
@@ -322,16 +357,20 @@ public:
         }
 
         LOG("MenuThread gamma: "<<new_gamma);
-        std::lock_guard<std::mutex> lock(settings_->mutex_);
-        settings_->gamma_ = new_gamma;
+        {
+            std::lock_guard<std::mutex> lock(settings_->mutex_);
+            settings_->gamma_ = new_gamma;
+        }
     }
 
     void toggleHistogram() noexcept {
         bool new_histogram = settings_->show_histogram_;
         toggleOnOff(new_histogram);
         LOG("MenuThread histogram: "<<new_histogram);
-        std::lock_guard<std::mutex> lock(settings_->mutex_);
-        settings_->show_histogram_ = new_histogram;
+        {
+            std::lock_guard<std::mutex> lock(settings_->mutex_);
+            settings_->show_histogram_ = new_histogram;
+        }
     }
 
     void toggleIso() noexcept {
@@ -389,8 +428,10 @@ public:
         bool new_fps = settings_->show_fps_;
         toggleOnOff(new_fps);
         LOG("MenuThread show fps (frame rate): "<<new_fps);
-        std::lock_guard<std::mutex> lock(settings_->mutex_);
-        settings_->show_fps_ = new_fps;
+        {
+            std::lock_guard<std::mutex> lock(settings_->mutex_);
+            settings_->show_fps_ = new_fps;
+        }
     }
 
     void handleMount() noexcept {
@@ -579,7 +620,7 @@ public:
         LOG("MenuThread save path: "<<path);
         {
             std::lock_guard<std::mutex> lock(settings_->mutex_);
-            std::swap(settings_->save_path_, path);
+            settings_->save_path_ = std::move(path);
         }
     }
 
@@ -592,7 +633,7 @@ public:
         LOG("MenuThread save file: "<<filename);
         {
             std::lock_guard<std::mutex> lock(settings_->mutex_);
-            std::swap(settings_->save_file_name_, filename);
+            settings_->save_file_name_ = std::move(filename);
         }
     }
 
@@ -613,8 +654,8 @@ public:
         LOG("MenuThread save raw: "<<new_filename);
         {
             std::lock_guard<std::mutex> lock(settings_->mutex_);
-            std::swap(settings_->auto_save_, new_auto_save);
-            std::swap(settings_->raw_file_name_, new_filename);
+            settings_->auto_save_ = new_auto_save;
+            settings_->raw_file_name_ = std::move(new_filename);
         }
     }
 
@@ -656,8 +697,10 @@ public:
         bool new_find_stars = settings_->find_stars_;
         toggleOnOff(new_find_stars);
         LOG("MenuThread find stars: "<<new_find_stars);
-        std::lock_guard<std::mutex> lock(settings_->mutex_);
-        settings_->find_stars_ = new_find_stars;
+        {
+            std::lock_guard<std::mutex> lock(settings_->mutex_);
+            settings_->find_stars_ = new_find_stars;
+        }
     }
 
     /** show how the program is to be used. **/
@@ -686,6 +729,6 @@ public:
 };
 }
 
-agm::Thread *createMenuThread(SettingsBuffer *settings_buffer) noexcept {
-    return new(std::nothrow) MenuThread(settings_buffer);
+agm::Thread *createMenuThread(SettingsBuffer *settings) noexcept {
+    return new(std::nothrow) MenuThread(settings);
 }

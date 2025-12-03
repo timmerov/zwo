@@ -830,7 +830,7 @@ void WindowThread::setWindowCrop() noexcept {
 
 agm::Thread *createWindowThread(
     ImageDoubleBuffer *image_double_buffer,
-    SettingsBuffer *settings_buffer
+    SettingsBuffer *settings
 ) noexcept {
-    return new(std::nothrow) WindowThread::WindowThread(image_double_buffer, settings_buffer);
+    return new(std::nothrow) WindowThread::WindowThread(image_double_buffer, settings);
 }

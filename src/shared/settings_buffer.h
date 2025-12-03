@@ -89,6 +89,4 @@ public:
     ~SettingsBuffer() noexcept = default;
 
     std::mutex mutex_;
-
-    void appendToInput(const std::string str) noexcept;
 };

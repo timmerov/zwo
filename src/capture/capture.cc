@@ -39,10 +39,10 @@ public:
 
     CaptureThread(
         ImageDoubleBuffer *image_double_buffer,
-        SettingsBuffer *settings_buffer
+        SettingsBuffer *settings
     ) noexcept : agm::Thread("CaptureThread") {
         image_double_buffer_ = image_double_buffer;
-        settings_ = settings_buffer;
+        settings_ = settings;
     }
 
     virtual ~CaptureThread() = default;
@@ -322,15 +322,15 @@ public:
 
     void copySettings() noexcept {
         {
-        std::lock_guard<std::mutex> lock(settings_->mutex_);
-        auto_exposure_ = settings_->auto_exposure_;
-        exposure_ = settings_->exposure_;
-        /**
-        std::move means raid my resources.
-        it does not mean clear them on the way out.
-        **/
-        load_file_name_ = std::move(settings_->load_file_name_);
-        settings_->load_file_name_.clear();
+            std::lock_guard<std::mutex> lock(settings_->mutex_);
+            auto_exposure_ = settings_->auto_exposure_;
+            exposure_ = settings_->exposure_;
+            /**
+            std::move means raid my resources.
+            it does not mean clear them on the way out.
+            **/
+            load_file_name_ = std::move(settings_->load_file_name_);
+            settings_->load_file_name_.clear();
         }
         if (load_file_name_.size() > 0) {
             LOG("load_file_name=\""<<load_file_name_<<"\"");
@@ -437,7 +437,7 @@ public:
 
 agm::Thread *createCaptureThread(
     ImageDoubleBuffer *image_double_buffer,
-    SettingsBuffer *settings_buffer
+    SettingsBuffer *settings
 ) noexcept {
-    return new(std::nothrow) CaptureThread(image_double_buffer, settings_buffer);
+    return new(std::nothrow) CaptureThread(image_double_buffer, settings);
 }
