@@ -36,7 +36,7 @@ public:
     SettingsBuffer *settings_ = nullptr;
 
     /** our fields. **/
-    cv::String win_name_ = "ZWO ASI";
+    cv::String win_name_;
     bool first_image_ = false;
     cv::Mat rgb16_;
     cv::Mat black_;

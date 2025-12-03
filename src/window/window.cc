@@ -18,10 +18,24 @@ window thread.
 
 namespace WindowThread {
 
+static const std::string kUpArrow = "\u2191";
+static const std::string kDownArrow = "\u2193";
+static const std::string kRightArrow = "\u2192";
+static const std::string kLeftArrow = "\u2190";
+
 WindowThread::WindowThread(
     ImageDoubleBuffer *image_double_buffer,
     SettingsBuffer *settings
 ) noexcept : agm::Thread("WindowThread"), Settings() {
+
+    /** fancy window name **/
+    win_name_ = "ZWO ASI "
+        + kLeftArrow + "N" + kLeftArrow + " "
+        + kDownArrow + "E" + kDownArrow + " "
+        + kUpArrow + "W" + kUpArrow + " "
+        + kRightArrow + "S" + kRightArrow
+        + " iOptron";
+
     image_double_buffer_ = image_double_buffer;
     settings_ = settings;
 }
