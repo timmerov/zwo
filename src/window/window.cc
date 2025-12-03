@@ -198,6 +198,8 @@ void WindowThread::wait_for_swap() noexcept {
         if (key == 27) {
             LOG("WindowThread stopping all threads.");
             agm::master::setDone();
+            /** stop ourselves immediately. don't run the loop again. **/
+            stop();
             return;
         }
 

@@ -78,6 +78,8 @@ public:
             LOG("  Number of cameras is "<<num_cameras_<<".");
             LOG("  Expected number is 1.");
             agm::master::setDone();
+            /** stop ourselves immediately. **/
+            stop();
             return;
         }
 
@@ -97,6 +99,8 @@ public:
             LOG("CaptureThread Aborting.");
             LOG("  Camera is not color.");
             agm::master::setDone();
+            /** stop ourselves immediately. **/
+            stop();
             return;
         }
         int bayer_ = camera_info.BayerPattern;
@@ -109,6 +113,8 @@ public:
             LOG("Failed to open camera.");
             LOG("  ASIOpenCamera("<<kCameraNumber<<"): "<<result);
             agm::master::setDone();
+            /** stop ourselves immediately. **/
+            stop();
             return;
 		}
 		LOG("CaptureThread Opened camera.");
@@ -120,6 +126,8 @@ public:
             LOG("  Failed to initialize camera.");
             LOG("  ASIInitCamera("<<kCameraNumber<<"): "<<result);
             agm::master::setDone();
+            /** stop ourselves immediately. **/
+            stop();
             return;
         }
         LOG("CaptureThread Initialized camera.");
@@ -152,6 +160,8 @@ public:
             LOG("CaptureThread Aborting.");
             LOG("  Failed to set resolution and format.");
             agm::master::setDone();
+            /** stop ourselves immediately. **/
+            stop();
             return;
         }
     }

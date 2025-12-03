@@ -619,6 +619,8 @@ public:
     void quit() noexcept {
         LOG("MenuThread stopping all threads.");
         agm::master::setDone();
+        /** stop ourselves immediately. **/
+        stop();
     }
 
     void loadImage() noexcept {
