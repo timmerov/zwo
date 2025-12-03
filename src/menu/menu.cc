@@ -249,7 +249,7 @@ public:
 
     void showMenu() noexcept {
         {
-            std::lock_guard(std::mutex) lock(settings_->mutex_);
+            std::lock_guard<std::mutex> lock(settings_->mutex_);
 
             LOG("Menu (not case sensitive unless specified):");
             LOG("  a [+-01yn]   : stack (accumulate) images: "<<settings_->accumulate_);
