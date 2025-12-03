@@ -24,6 +24,10 @@ public:
     double sum_y_;
     double sum_;
     int brightness_;
+    int left_;
+    int top_;
+    int right_;
+    int bottom_;
 };
 typedef std::vector<StarPosition> StarPositions;
 
@@ -276,6 +280,10 @@ public:
         int cx,
         int cy,
         int r
+    ) noexcept;
+
+    StarPosition *checkCollision(
+        StarPosition& star
     ) noexcept;
 
     void showStars() noexcept;

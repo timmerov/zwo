@@ -67,7 +67,7 @@ void WindowThread::findStars() noexcept {
     /** configuration constants. **/
     static const double kThresholdStdDevs = 2.0;
     static const int kMaxRadius = 30;
-    static const int kMaxCount = 12;
+    static const int kMaxCount = 10;
     static const int kAreaThreshold = 13;
     static const int kMinBrightCount = 5;
 
@@ -112,7 +112,13 @@ void WindowThread::findStars() noexcept {
     int threshold = std::round(mean[0] + kThresholdStdDevs * stddev[0]);
     LOG("grayscale image mean="<<mean[0]<<" stddev="<<stddev[0]<< " threshold="<<threshold);
 
-    for (int nstars = 0; nstars < kMaxCount; ++nstars) {
+    /** find at most N stars. **/
+    for(;;) {
+        int nstars = star_positions_.size();
+        if (nstars >= kMaxCount) {
+            break;
+        }
+
         /** find the maximum. **/
         int max_val = 0;
         int max_x = 0;
@@ -156,21 +162,45 @@ void WindowThread::findStars() noexcept {
         }
 
         /** ignore micro blobs. **/
-        if (bright_pixels >= kMinBrightCount) {
-            /** compute centroid. **/
-            StarPosition star;
-            blobCentroid(star, max_x, max_y, square_radius);
-            star.brightness_ = max_val;
+        if (bright_pixels < kMinBrightCount) {
+            /** erase the blob. **/
+            eraseBlob(max_x, max_y, square_radius);
 
-            /** save the star. **/
-            star_positions_.push_back(star);
-            LOG("Found a star at "<<max_x<<","<<max_y<<" size="<<square_radius<<" max="<<max_val<<" area="<<area<<" count="<<bright_pixels<<".");
-        } else {
             LOG("Skipped small blob at "<<max_x<<","<<max_y);
+            continue;
         }
+
+        /** compute centroid. **/
+        StarPosition star;
+        blobCentroid(star, max_x, max_y, square_radius);
+        star.brightness_ = max_val;
 
         /** erase the blob. **/
         eraseBlob(max_x, max_y, square_radius);
+
+        auto existing_star = checkCollision(star);
+        if (existing_star == nullptr) {
+            /** save the star. **/
+            star_positions_.push_back(star);
+
+            LOG("Found star["<<nstars<<"] at "<<max_x<<","<<max_y<<" size="<<square_radius<<" max="<<max_val<<" area="<<area<<" count="<<bright_pixels<<".");
+            continue;
+        }
+
+        /** expand the existing star's box. **/
+        existing_star->left_ = std::min(existing_star->left_, star.left_);
+        existing_star->top_ = std::min(existing_star->top_, star.top_);
+        existing_star->right_ = std::max(existing_star->right_, star.right_);
+        existing_star->bottom_ = std::max(existing_star->bottom_, star.bottom_);
+
+        /** should we adjust the existing star's centroid? **/
+        existing_star->sum_x_ += star.sum_x_;
+        existing_star->sum_y_ += star.sum_y_;
+        existing_star->sum_ += star.sum_;
+        existing_star->x_ = existing_star->sum_x_ / existing_star->sum_;
+        existing_star->y_ = existing_star->sum_y_ / existing_star->sum_;
+
+        LOG("Candidate collided with star at adjusted position: "<<existing_star->x_<<","<<existing_star->y_<<".");
     }
 
 #if 0
@@ -259,6 +289,10 @@ void WindowThread::blobCentroid(
     star.x_ = star.sum_x_ / star.sum_;
     star.y_ = star.sum_y_ / star.sum_;
     star.r_ = r;
+    star.left_ = x0;
+    star.top_ = y0;
+    star.right_ = x1 + 1;
+    star.bottom_ = y1 + 1;
 }
 
 void WindowThread::eraseBlob(
@@ -277,6 +311,21 @@ void WindowThread::eraseBlob(
             pgray16[y*wd + x] = 0;
         }
     }
+}
+
+/** they collide if they touch. **/
+StarPosition *WindowThread::checkCollision(
+    StarPosition& candidate
+) noexcept {
+    for (auto&& star : star_positions_) {
+        if (candidate.left_ <= star.right_
+        &&  candidate.right_ > star.left_
+        &&  candidate.top_ <= star.bottom_
+        &&  candidate.bottom_ > star.top_) {
+            return &star;
+        }
+    }
+    return nullptr;
 }
 
 void WindowThread::showStars() noexcept {

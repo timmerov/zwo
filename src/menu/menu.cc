@@ -68,14 +68,12 @@ public:
     void get_input() noexcept {
         /** don't get more input if we already have input. **/
         if (input_lines_.size() > 0) {
-            LOG("existing input: \""<<input_lines_<<"\"");
             return;
         }
 
         /** get input from stdin. **/
         input_lines_ = nbi_.get();
         if (input_lines_.size()) {
-            LOG("keyboard input: \""<<input_lines_<<"\"");
             return;
         }
 
@@ -88,10 +86,6 @@ public:
             **/
             input_lines_ = std::move(settings_->input_);
             settings_->input_.clear();
-        }
-        if (input_lines_.size()) {
-            LOG("thread input: \""<<input_lines_<<"\"");
-            return;
         }
     }
 
@@ -570,7 +564,7 @@ public:
         LOG("MenuThread load file: "<<filename);
         {
             std::lock_guard<std::mutex> lock(settings_->mutex_);
-            std::swap(settings_->load_file_name_, filename);
+            settings_->load_file_name_ = std::move(filename);
         }
     }
 
