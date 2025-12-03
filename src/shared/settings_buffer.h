@@ -73,6 +73,7 @@ public:
     bool show_fps_ = false;
     bool find_stars_ = false;
     bool auto_save_ = false;
+    bool subtract_median_ = false;
     std::string load_file_name_;
     std::string save_file_name_;
     std::string raw_file_name_;

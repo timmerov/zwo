@@ -130,6 +130,10 @@ public:
             setColorBalance();
             break;
 
+        case 'd':
+            toggleSubtractMedian();
+            break;
+
         case 'e':
             toggleAutoExposure();
             break;
@@ -216,6 +220,8 @@ public:
             /** move the entire input to line. **/
             input_ = std::move(input_lines_);
             input_lines_.clear();
+            /** add a trailing end line. **/
+            input_ += '\n';
         } else {
             /** include the end of line. **/
             ++pos;
@@ -223,6 +229,14 @@ public:
             input_ = input_lines_.substr(0, pos);
             /** erase the first line from input. **/
             input_lines_.erase(0, pos);
+        }
+
+        /** remove trailing comments after // **/
+        pos = input_.find("//");
+        if (pos != std::string::npos) {
+            input_.erase(pos);
+            /** restore the trailing end line. **/
+            input_ += '\n';
         }
     }
 
@@ -255,6 +269,7 @@ public:
             LOG("  a [+-01yn]   : stack (accumulate) images: "<<settings_->accumulate_);
             LOG("  b [+-01yn]   : toggle capture black: "<<settings_->capture_black_);
             LOG("  c red blue   : set color balance: r="<<settings_->balance_red_<<" b="<<settings_->balance_blue_);
+            LOG("  d [+-01yn]   : toggle subtract median: "<<settings_->subtract_median_);
             LOG("  e [+-01yn]   : toggle auto exposure: "<<settings_->auto_exposure_);
             LOG("  e usecs      : set exposure microseconds (disables auto): "<<settings_->exposure_);
             LOG("  f [+-01yn]   : toggle manual focus helper: "<<settings_->show_focus_);
@@ -316,6 +331,16 @@ public:
             std::lock_guard<std::mutex> lock(settings_->mutex_);
             settings_->balance_red_ = new_balance_red;
             settings_->balance_blue_ = new_balance_blue;
+        }
+    }
+
+    void toggleSubtractMedian() noexcept {
+        bool new_subtract_median = settings_->subtract_median_;
+        toggleOnOff(new_subtract_median);
+        LOG("MenuThread subtract median: "<<new_subtract_median);
+        {
+            std::lock_guard<std::mutex> lock(settings_->mutex_);
+            settings_->subtract_median_ = new_subtract_median;
         }
     }
 

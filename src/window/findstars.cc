@@ -91,18 +91,21 @@ void WindowThread::findStars() noexcept {
         pimg += 3;
     }
 
-    /** find median. **/
-    findMedianGrays();
+    /** we don't need to do this if the median has already been subtracted. **/
+    if (subtract_median_ == false) {
+        /** find median. **/
+        findMedianGrays();
 
-    /** subtract the median. **/
-    auto pmedian16 = (agm::uint16 *) median16_.data;
-    pgray16 = (agm::uint16 *) gray16_.data;
-    for (int i = 0; i < sz; ++i) {
-        int med = *pmedian16++;
-        int px = *pgray16;
-        px -= med;
-        px = std::max(0, px);
-        *pgray16++ = px;
+        /** subtract the median. **/
+        auto pmedian16 = (agm::uint16 *) median16_.data;
+        pgray16 = (agm::uint16 *) gray16_.data;
+        for (int i = 0; i < sz; ++i) {
+            int med = *pmedian16++;
+            int px = *pgray16;
+            px -= med;
+            px = std::max(0, px);
+            *pgray16++ = px;
+        }
     }
 
     /** get the mean and standard deviation of the grayscale image. **/

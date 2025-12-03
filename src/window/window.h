@@ -98,6 +98,8 @@ public:
 
     void copySettings() noexcept;
 
+    void subtractMedian() noexcept;
+
     void checkBlurriness() noexcept;
 
     /** no alignment **/

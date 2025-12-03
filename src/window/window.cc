@@ -122,6 +122,9 @@ WindowThread::WindowThread(
     **/
     cv::cvtColor(img_->bayer_, rgb16_, cv::COLOR_BayerRG2RGB);
 
+    /** subtract the local median. **/
+    subtractMedian();
+
     /** check blurriness. **/
     checkBlurriness();
 
@@ -264,6 +267,7 @@ void WindowThread::copySettings() noexcept {
     show_fps_ = settings_->show_fps_;
     find_stars_ = settings_->find_stars_;
     auto_save_ = settings_->auto_save_;
+    subtract_median_ = settings_->subtract_median_;
     save_file_name_ = std::move(settings_->save_file_name_);
     raw_file_name_ = std::move(settings_->raw_file_name_);
     if (settings_->save_path_.size() > 0) {
@@ -278,6 +282,34 @@ void WindowThread::copySettings() noexcept {
     settings_->save_file_name_.clear();
     settings_->raw_file_name_.clear();
     settings_->save_path_.clear();
+}
+
+void WindowThread::subtractMedian() noexcept {
+    if (subtract_median_ == false) {
+        return;
+    }
+
+    int sz = img_->width_ * img_->height_;
+    for (int cmp = 0; cmp < 3; ++cmp) {
+        /** extract each component. **/
+        cv::extractChannel(rgb16_, gray16_, cmp);
+
+        /** find the median. **/
+        findMedianGrays();
+
+        /** subtract the median. **/
+        auto pmedian16 = (agm::uint16 *) median16_.data;
+        auto pcomp16 = (agm::uint16 *) rgb16_.data;
+        pcomp16 += cmp;
+        for (int i = 0; i < sz; ++i) {
+            int med = *pmedian16++;
+            int px = *pcomp16;
+            px -= med;
+            px = std::max(0, px);
+            *pcomp16 = px;
+            pcomp16 += 3;
+        }
+    }
 }
 
 void WindowThread::checkBlurriness() noexcept {
