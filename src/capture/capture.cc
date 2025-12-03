@@ -321,6 +321,7 @@ public:
     }
 
     void copySettings() noexcept {
+        {
         std::lock_guard<std::mutex> lock(settings_->mutex_);
         auto_exposure_ = settings_->auto_exposure_;
         exposure_ = settings_->exposure_;
@@ -330,6 +331,10 @@ public:
         **/
         load_file_name_ = std::move(settings_->load_file_name_);
         settings_->load_file_name_.clear();
+        }
+        if (load_file_name_.size() > 0) {
+            LOG("load_file_name=\""<<load_file_name_<<"\"");
+        }
     }
 
     void writeSettings() noexcept {

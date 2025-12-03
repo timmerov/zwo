@@ -65,7 +65,7 @@ void WindowThread::findStars() noexcept {
     star_positions_.resize(0);
 
     /** configuration constants. **/
-    static const double kThresholdStdDevs = 2.0;
+    static const double kThresholdStdDevs = 0.0;
     static const int kMaxRadius = 30;
     static const int kMaxCount = 10;
     static const int kAreaThreshold = 13;
@@ -200,7 +200,7 @@ void WindowThread::findStars() noexcept {
         existing_star->x_ = existing_star->sum_x_ / existing_star->sum_;
         existing_star->y_ = existing_star->sum_y_ / existing_star->sum_;
 
-        LOG("Candidate collided with star at adjusted position: "<<existing_star->x_<<","<<existing_star->y_<<".");
+        //LOG("Candidate collided with star at adjusted position: "<<existing_star->x_<<","<<existing_star->y_<<".");
     }
 
 #if 0
