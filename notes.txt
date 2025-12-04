@@ -128,3 +128,67 @@ divide the image into 16 regions.
 find median pixel color in each region.
 fit to a 2d gradient.
 subtract from image to make the background black.
+
+
+random ideas:
+
+seems like we need to build a star catalog.
+starting with the stars near polaris.
+so we can accurately polar align the scope.
+
+procedure #1:
+roughly align the scope towards polaris.
+home position.
+should be able to see some stars.
+2 seconds should find magnitude 12 stars.
+enable find stars.
+enable tracking.
+
+save an image or 5.
+identify and remove false positives.
+disable tracking.
+wait 2 minutes.
+repeat.
+find the same reliable stars.
+repeat again.
+
+so now we should have 3 x,y positions for 4+ stars.
+guess two angles.
+guess the x,y position of the celestial north pole.
+do some levenberg-marquardt math.
+now we know the x,y position of the celestial north pole.
+and we know the relative right ascensions and declinations of the stars.
+and we know the two angles.
+
+step #2.
+enable tracking.
+enable find stars.
+save an image or 5.
+find the reliable stars.
+slew east by the larger angle.
+save an image or 5.
+find the reliable stars.
+slew back to home.
+slew west by the larger angle.
+save an image or 5.
+find the reliable stars.
+
+so now we should have 3 x,y positions for 4+ stars.
+do the math again.
+and now we know the x,y position of the mount axis.
+we should be able to draw circles where the stars should be.
+we should be able to adjust the mount to align them.
+
+wish list:
+need command to find reliable stars aka the plate.
+need command to slew the mount to center the plate.
+
+
+
+
+
+
+
+
+
+
