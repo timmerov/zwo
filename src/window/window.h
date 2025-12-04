@@ -35,6 +35,8 @@ class WindowThread : public agm::Thread, public Settings {
 public:
     /** share data with the capture thread. **/
     ImageDoubleBuffer *image_double_buffer_ = nullptr;
+    bool resume_waiting_ = false;
+
     ImageBuffer *img_ = nullptr;
     /** share data with the menu thread. **/
     SettingsBuffer *settings_ = nullptr;

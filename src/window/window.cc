@@ -226,15 +226,17 @@ void WindowThread::wait_for_swap() noexcept {
         }
 
         /** swap buffers with the capture thread. **/
-        auto img = image_double_buffer_->swap(img_, kTimeoutMs);
+        auto img = image_double_buffer_->swap(img_, kTimeoutMs, resume_waiting_);
 
         /** we have a new image. **/
         if (img) {
+            resume_waiting_ = false;
             img_ = img;
             return;
         }
 
         /** no new image. loop. **/
+        resume_waiting_ = true;
     }
 }
 

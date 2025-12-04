@@ -48,17 +48,18 @@ public:
     /** swap buffers with the other thread. **/
     ImageBuffer *swap(
         const ImageBuffer *img,
-        int ms
+        int ms,
+        bool resume
     ) noexcept {
         /**
         signal this buffer's semaphore.
         wait for the other buffer's semaphore.
         **/
         if (img == &buf0_.img_) {
-            return swap(buf0_, buf1_, ms);
+            return swap(buf0_, buf1_, ms, resume);
         }
         if (img == &buf1_.img_) {
-            return swap(buf1_, buf0_, ms);
+            return swap(buf1_, buf0_, ms, resume);
         }
         return nullptr;
     }
@@ -66,9 +67,12 @@ public:
     ImageBuffer *swap(
         SingleBuffer &bufa,
         SingleBuffer &bufb,
-        int ms
+        int ms,
+        bool resume
     ) noexcept {
-        bufa.sem_.signal();
+        if (resume == false) {
+            bufa.sem_.signal();
+        }
         if (ms == 0) {
             bufb.sem_.waitConsume();
             return &bufb.img_;
@@ -119,10 +123,11 @@ ImageBuffer *ImageDoubleBuffer::acquire(
 
 ImageBuffer *ImageDoubleBuffer::swap(
     const ImageBuffer *img,
-    int ms
+    int ms,
+    bool resume
 ) noexcept {
     auto impl = (ImageDoubleBufferImpl *) this;
-    return impl->swap(img, ms);
+    return impl->swap(img, ms, resume);
 }
 
 void ImageDoubleBuffer::unblock() noexcept {
