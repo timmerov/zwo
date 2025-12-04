@@ -131,6 +131,9 @@ WindowThread::WindowThread(
     /** stack images. **/
     stackImages();
 
+    /** save the raw image before we start processing it. **/
+    saveImageRaw();
+
     /** iso linear scale. **/
     isoLinearScale();
 
@@ -166,8 +169,11 @@ WindowThread::WindowThread(
     /** show it. **/
     cv::imshow(win_name_, cropped8_);
 
-    /** save the file. **/
-    saveImage();
+    /**
+    save the displayed or the stacked image
+    before we start a new frame.
+    **/
+    saveImageDisplayStacked();
 
     /** check for user hits escape key. **/
     wait_for_swap();

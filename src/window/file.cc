@@ -17,18 +17,38 @@ window thread
 
 namespace WindowThread {
 
-/** save the image to the file. **/
-void WindowThread::saveImage() noexcept {
-    if (save_file_name_.size()) {
-        if (accumulate_) {
-            saveAccumulatedImage();
-        } else {
-            saveDisplayImage();
-        }
-    } else if (auto_save_) {
-        autoSaveRawImage();
-    } else if (raw_file_name_.size()) {
+/**
+save or auto save the raw image
+if a filename was given.
+**/
+void WindowThread::saveImageRaw() noexcept {
+    if (raw_file_name_.size()) {
         saveRawImage();
+    }
+    if (auto_save_) {
+        autoSaveRawImage();
+    }
+}
+
+/**
+save the displayed image or the stacked image
+if a filename was given.
+**/
+void WindowThread::saveImageDisplayStacked() noexcept {
+    /** no filename specified. **/
+    if (save_file_name_.size() == 0) {
+        return;
+    }
+
+    /**
+    if we're stacking, save that.
+    otherwise save the displayed image.
+    yeah, it's not the best system.
+    **/
+    if (accumulate_) {
+        saveAccumulatedImage();
+    } else {
+        saveDisplayImage();
     }
 }
 
@@ -36,7 +56,7 @@ void WindowThread::saveImage() noexcept {
 void WindowThread::saveDisplayImage() noexcept {
     bool success = saveImage8();
     if (success) {
-        LOG("CaptureThread Saved gamma corrected 8 bit image to file: "<<save_file_name_);
+        LOG("WindowThread Saved gamma corrected 8 bit image to file: "<<save_file_name_);
     }
 }
 
@@ -72,7 +92,7 @@ void WindowThread::autoSaveRawImage() noexcept {
 
     bool success = saveImage16(filename);
     if (success) {
-        LOG("CaptureThread Auto saved raw image to 16 bit tiff file: "<<filename);
+        LOG("WindowThread Auto saved raw image to 16 bit tiff file: "<<filename);
         saveStars(filename);
     }
 }
@@ -81,7 +101,7 @@ void WindowThread::autoSaveRawImage() noexcept {
 void WindowThread::saveRawImage() noexcept {
     bool success = saveImage16(raw_file_name_);
     if (success) {
-        LOG("CaptureThread Saved raw image to 16 bit tiff file: "<<raw_file_name_);
+        LOG("WindowThread Saved raw image to 16 bit tiff file: "<<raw_file_name_);
         saveStars(raw_file_name_);
     }
 }
@@ -93,7 +113,7 @@ void WindowThread::saveAccumulatedImage() noexcept {
         return;
     }
 
-    LOG("CaptureThread Saved image to 32 bit tiff file: "<<save_file_name_);
+    LOG("WindowThread Saved image to 32 bit tiff file: "<<save_file_name_);
 
     /** disable stacking. **/
     accumulate_ = 0;
@@ -112,7 +132,7 @@ bool WindowThread::saveImage8() noexcept {
     try {
         success = cv::imwrite(filename, rgb8_gamma_);
     } catch (const cv::Exception& ex) {
-        LOG("CaptureThread Failed to save image to file: "<<filename<<" OpenCV reason: "<<ex.what());
+        LOG("WindowThread Failed to save image to file: "<<filename<<" OpenCV reason: "<<ex.what());
     }
     return success;
 }
@@ -126,7 +146,7 @@ bool WindowThread::saveImage16(
     LOG("filename="<<filename);
     TIFF *tiff = TIFFOpen(filename.c_str(), "w");
     if (tiff == nullptr) {
-        LOG("CaptureThread Failed to create tiff file: "<<filename);
+        LOG("WindowThread Failed to create tiff file: "<<filename);
         return false;
     }
 
@@ -177,7 +197,7 @@ bool WindowThread::saveImage16(
     }
 
     if (success == false) {
-        LOG("CaptureThread Failed to write tiff file: "<<filename);
+        LOG("WindowThread Failed to write tiff file: "<<filename);
     }
 
     delete[] buffer;
@@ -192,7 +212,7 @@ bool WindowThread::saveImage32() noexcept {
     std::string filename = save_path_ + save_file_name_;
     TIFF *tiff = TIFFOpen(filename.c_str(), "w");
     if (tiff == nullptr) {
-        LOG("CaptureThread Failed to create tiff file: "<<filename);
+        LOG("WindowThread Failed to create tiff file: "<<filename);
         return false;
     }
 
@@ -253,7 +273,7 @@ bool WindowThread::saveImage32() noexcept {
     }
 
     if (success == false) {
-        LOG("CaptureThread Failed to write tiff file: "<<filename);
+        LOG("WindowThread Failed to write tiff file: "<<filename);
     }
 
     delete[] buffer;

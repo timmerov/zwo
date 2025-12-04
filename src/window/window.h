@@ -187,8 +187,11 @@ public:
 
     /** vvvvv ----- file.cc ----- vvvvv **/
 
-    /** save the image to the file. **/
-    void saveImage() noexcept;
+    /** maybe save the raw image. **/
+    void saveImageRaw() noexcept;
+
+    /** maybe save the diplayed or stacked image. **/
+    void saveImageDisplayStacked() noexcept;
 
     /** save the 8 bit gamma corrected image. **/
     void saveDisplayImage() noexcept;
