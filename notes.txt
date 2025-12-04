@@ -5,12 +5,14 @@
 - stellarium right ascension seems to be off by an hour. daylight savings time?
 - the width is about the distance from polaris to the celestial north pole.
 - polaris saturates at about 280 ms.
-- magnitude 11+ stars show up in 1.0s exposure. quite clear in 2.0s. 
+- magnitude 11+ stars show up in 1.0s exposure. quite clear in 2.0s.
 
 - focuser distance setting is about 28mm for stars.
 that's the distance between the edge of the camera and the edge of the focuser housing.
 it was 29 mm prior to recent calibration.
 
+- the mount will not turn the payload upside down.
+if you try to move it too far west it will sew to the far east.
 
 Siril Tutorial: Image Stacking & Processing in Astrophotography
 https://sathvikacharyaa.github.io/sirilastro/

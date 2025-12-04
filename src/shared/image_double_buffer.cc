@@ -12,40 +12,89 @@ Copyright (C) 2024-2025 tim cotter. All rights reserved.
 
 // use an anonymous namespace to avoid name collisions at link time.
 namespace {
-    class ImageDoubleBufferImpl : public ImageDoubleBuffer {
+
+class ImageDoubleBufferImpl : public ImageDoubleBuffer {
+public:
+    ImageDoubleBufferImpl() = default;
+    ImageDoubleBufferImpl(const ImageDoubleBufferImpl &) = delete;
+    virtual ~ImageDoubleBufferImpl() noexcept = default;
+
+    class SingleBuffer {
     public:
-        ImageDoubleBufferImpl() = default;
-        ImageDoubleBufferImpl(const ImageDoubleBufferImpl &) = delete;
-        virtual ~ImageDoubleBufferImpl() noexcept = default;
-
-        ImageBuffer img0_;
-        ImageBuffer img1_;
-        agm::Semaphore sem0_;
-        agm::Semaphore sem1_;
-
-        void init() noexcept {
-            img0_.bayer_ = cv::Mat(0, 0, CV_16UC1);
-            img1_.bayer_ = cv::Mat(0, 0, CV_16UC1);
-        }
-
-        ImageBuffer *swap(
-            agm::Semaphore &sema,
-            agm::Semaphore &semb,
-            ImageBuffer *img,
-            int ms
-        ) noexcept {
-            sema.signal();
-            if (ms == 0) {
-                semb.waitConsume();
-                return img;
-            }
-            bool timedout = semb.waitForConsume(ms);
-            if (timedout) {
-                return nullptr;
-            }
-            return img;
-        }
+        ImageBuffer img_;
+        agm::Semaphore sem_;
     };
+    SingleBuffer buf0_;
+    SingleBuffer buf1_;
+
+    void init() noexcept {
+        buf0_.img_.bayer_ = cv::Mat(0, 0, CV_16UC1);
+        buf1_.img_.bayer_ = cv::Mat(0, 0, CV_16UC1);
+    }
+
+    /** get exclusive access to one of the buffers. **/
+    ImageBuffer *acquire(
+        int which
+    ) noexcept {
+        if (which == 0) {
+            return &buf0_.img_;
+        }
+        if (which == 1) {
+            return &buf1_.img_;
+        }
+        return nullptr;
+    }
+
+    /** swap buffers with the other thread. **/
+    ImageBuffer *swap(
+        const ImageBuffer *img,
+        int ms
+    ) noexcept {
+        /**
+        signal this buffer's semaphore.
+        wait for the other buffer's semaphore.
+        **/
+        if (img == &buf0_.img_) {
+            return swap(buf0_, buf1_, ms);
+        }
+        if (img == &buf1_.img_) {
+            return swap(buf1_, buf0_, ms);
+        }
+        return nullptr;
+    }
+
+    ImageBuffer *swap(
+        SingleBuffer &bufa,
+        SingleBuffer &bufb,
+        int ms
+    ) noexcept {
+        bufa.sem_.signal();
+        if (ms == 0) {
+            bufb.sem_.waitConsume();
+            return &bufb.img_;
+        }
+        bool timedout = bufb.sem_.waitForConsume(ms);
+        if (timedout) {
+            return nullptr;
+        }
+        return &bufb.img_;
+    }
+
+    /**
+    unblock both threads as if the other thread
+    called swap.
+    there's no way for swap to know if it was
+    called normally or if it returned because
+    it was unblocked.
+    the caller will need to make that determination
+    some other way.
+    **/
+    void unblock() noexcept {
+        /** signal both semaphores to unblock both threads. **/
+        buf0_.sem_.signal();
+        buf1_.sem_.signal();
+    }
+};
 }
 
 ImageDoubleBuffer::ImageDoubleBuffer() noexcept :
@@ -61,51 +110,23 @@ ImageDoubleBuffer *ImageDoubleBuffer::create() noexcept {
     return impl;
 }
 
-/** get exclusive access to one of the buffers. **/
 ImageBuffer *ImageDoubleBuffer::acquire(
     int which
 ) noexcept {
     auto impl = (ImageDoubleBufferImpl *) this;
-    if (which == 0) {
-        return &impl->img0_;
-    }
-    if (which == 1) {
-        return &impl->img1_;
-    }
-    return nullptr;
+    return impl->acquire(which);
 }
 
-/** swap buffers with the other thread. **/
 ImageBuffer *ImageDoubleBuffer::swap(
     const ImageBuffer *img,
     int ms
 ) noexcept {
-    /**
-    signal this buffer's semaphore.
-    wait for the other buffer's semaphore.
-    **/
     auto impl = (ImageDoubleBufferImpl *) this;
-    if (img == &impl->img0_) {
-        return impl->swap(impl->sem0_, impl->sem1_, &impl->img1_, ms);
-    }
-    if (img == &impl->img1_) {
-        return impl->swap(impl->sem1_, impl->sem0_, &impl->img0_, ms);
-    }
-    return nullptr;
+    return impl->swap(img, ms);
 }
 
-/**
-unblock both threads as if the other thread
-called swap.
-there's no way for swap to know if it was
-called normally or if it returned because
-it was unblocked.
-the caller will need to make that determination
-some other way.
-**/
 void ImageDoubleBuffer::unblock() noexcept {
     /** signal both semaphores to unblock both threads. **/
     auto impl = (ImageDoubleBufferImpl *) this;
-    impl->sem0_.signal();
-    impl->sem1_.signal();
+    impl->unblock();
 }
