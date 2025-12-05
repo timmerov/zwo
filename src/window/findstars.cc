@@ -536,3 +536,117 @@ void WindowThread::findMedianGrays() noexcept {
 }
 
 } // WindowThread
+
+#include "levenberg_marquardt.h"
+
+class DoTheThing : public LevenbergMarquardt {
+public:
+    DoTheThing() = default;
+    virtual ~DoTheThing() = default;
+
+    /**
+    params[0] = center x in pixels ~ 1000
+    params[1] = center y in pixels ~ 1000
+    params[2] = angle in arcseconds - 1000
+    **/
+    static constexpr int kNParams = 3;
+
+    /**
+    givens[i] = x,y for 4 stars
+    **/
+    Eigen::VectorXd start_positions_;
+
+    /**
+    data points aka targets
+    data points[i] = x,y for 4 stars
+    **/
+    static constexpr int kNDataPoints = 2 * 4;
+
+    /** configuration. **/
+    static constexpr double kEpsilon = 0.001;
+    static constexpr double kMinErrorChange = 0.00001;
+
+    static constexpr double kPi = 3.141592653589793238462643383279502884L;
+
+    void run() noexcept {
+        /** mandatory. **/
+        ndata_points_ = kNDataPoints;
+        nparams_ = kNParams;
+        /** configurations. **/
+        verbosity_ = Verbosity::kQuiet;
+        epsilon_ = kEpsilon;
+        min_error_change_ = kMinErrorChange;
+
+        /** set the initial guess. **/
+        solution_.resize(kNParams);
+        solution_ << 0.0, 0.0, 0.0;
+
+        start_positions_.resize(kNDataPoints);
+        targets_.resize(kNDataPoints);
+
+        /** x0,y0 **/
+        start_positions_ <<
+             501.411, 765.932,
+            1012.370, 169.144,
+             627.795, 405.169,
+            1408.960, 537.963;
+
+        /** x1,y1 **/
+        targets_ <<
+             515.372, 778.284,
+            1038.24,  189.860,
+             649.4,   417.772,
+            1428.44,  566.551;
+
+        /** solve for the params. **/
+        solve();
+
+        /** interpret the results. **/
+        double cx = solution_[0];
+        double cy = solution_[1];
+        double arcs = solution_[2];
+        LOG("polar center="<<cx<<","<<cy<<" rotation="<<arcs<<"\"");
+    }
+
+    virtual void makePrediction(
+        const Eigen::VectorXd &solution,
+        Eigen::VectorXd &predicted
+    ) noexcept {
+
+        /** extract the parameters. **/
+        double cx = solution[0];
+        double cy = solution[1];
+        double arcs = solution[2];
+
+        double degrees = arcs / 3600.0;
+        double angle = degrees * kPi / 180.0;
+        double sina = std::sin(angle);
+        double cosa = std::cos(angle);
+
+        /** calculate the target positions. **/
+        for (int i = 0; i < kNDataPoints; i += 2) {
+            double x0 = start_positions_[i];
+            double y0 = start_positions_[i+1];
+
+            x0 -= cx;
+            y0 -= cy;
+
+            double x1 = x0 * cosa - y0 * sina;
+            double y1 = x0 * sina + y0 * cosa;
+
+            x1 += cx;
+            y1 += cy;
+
+            predicted[i] = x1;
+            predicted[i+1] = y1;
+        }
+    }
+};
+
+void doTheThing() noexcept {
+    DoTheThing dtt;
+    dtt.run();
+}
+
+
+

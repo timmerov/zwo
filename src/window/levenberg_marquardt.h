@@ -13,7 +13,7 @@ that least squares best fits a set of results.
 class LevenbergMarquardt {
 public:
     LevenbergMarquardt() = default;
-    ~LevenbergMarquardt() = default;
+    virtual ~LevenbergMarquardt() = default;
 
     /** must set these. **/
     int ndata_points_ = 0;

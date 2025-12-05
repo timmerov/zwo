@@ -757,6 +757,8 @@ public:
 };
 }
 
-agm::Thread *createMenuThread(SettingsBuffer *settings) noexcept {
+agm::Thread *createMenuThread(
+    SettingsBuffer *settings
+) noexcept {
     return new(std::nothrow) MenuThread(settings);
 }
