@@ -146,7 +146,7 @@ void WindowThread::findStars() noexcept {
     cv::Scalar stddev;
     cv::meanStdDev(gray16_, mean, stddev);
     int threshold = std::round(mean[0] + kThresholdStdDevs * stddev[0]);
-    LOG("grayscale image mean="<<mean[0]<<" stddev="<<stddev[0]<< " threshold="<<threshold);
+    //LOG("grayscale image mean="<<mean[0]<<" stddev="<<stddev[0]<< " threshold="<<threshold);
 
     /** find at most N stars. **/
     for(;;) {
@@ -219,7 +219,7 @@ void WindowThread::findStars() noexcept {
             /** save the star. **/
             star_positions_.push_back(star);
 
-            LOG("Found star["<<nstars<<"] at "<<max_x<<","<<max_y<<" size="<<square_radius<<" max="<<max_val<<" area="<<area<<" count="<<bright_pixels<<".");
+            //LOG("Found star["<<nstars<<"] at "<<max_x<<","<<max_y<<" size="<<square_radius<<" max="<<max_val<<" area="<<area<<" count="<<bright_pixels<<".");
             continue;
         }
 
