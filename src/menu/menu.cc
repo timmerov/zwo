@@ -631,6 +631,13 @@ public:
         }
 
         LOG("MenuThread load file: "<<filename);
+
+        /** wait for the capture thread to consume the previous image. **/
+        while (settings_->load_file_name_.size() > 0) {
+            agm::sleep::milliseconds(10);
+        }
+
+        /** pass the filename to the capture thread. **/
         {
             std::lock_guard<std::mutex> lock(settings_->mutex_);
             settings_->load_file_name_ = std::move(filename);

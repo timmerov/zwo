@@ -342,9 +342,6 @@ public:
             load_file_name_ = std::move(settings_->load_file_name_);
             settings_->load_file_name_.clear();
         }
-        if (load_file_name_.size() > 0) {
-            LOG("load_file_name=\""<<load_file_name_<<"\"");
-        }
     }
 
     void writeSettings() noexcept {
