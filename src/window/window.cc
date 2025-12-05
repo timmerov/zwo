@@ -260,38 +260,47 @@ we don't actually own all of them.
 namely, input_.
 **/
 void WindowThread::copySettings() noexcept {
-    std::lock_guard<std::mutex> lock(settings_->mutex_);
-    accumulate_ = settings_->accumulate_;
-    capture_black_ = settings_->capture_black_;
-    balance_red_ = settings_->balance_red_;
-    balance_blue_ = settings_->balance_blue_;
-    exposure_ = settings_->exposure_;
-    show_focus_ = settings_->show_focus_;
-    gamma_ = settings_->gamma_;
-    show_histogram_ = settings_->show_histogram_;
-    auto_iso_ = settings_->auto_iso_;
-    iso_ = settings_->iso_;
-    show_circles_ = settings_->show_circles_;
-    circles_x_ = settings_->circles_x_;
-    circles_y_ = settings_->circles_y_;
-    show_fps_ = settings_->show_fps_;
-    find_stars_ = settings_->find_stars_;
-    auto_save_ = settings_->auto_save_;
-    subtract_median_ = settings_->subtract_median_;
-    save_file_name_ = std::move(settings_->save_file_name_);
-    raw_file_name_ = std::move(settings_->raw_file_name_);
-    if (settings_->save_path_.size() > 0) {
-        save_path_ = std::move(settings_->save_path_);
+    {
+        std::lock_guard<std::mutex> lock(settings_->mutex_);
+        accumulate_ = settings_->accumulate_;
+        capture_black_ = settings_->capture_black_;
+        balance_red_ = settings_->balance_red_;
+        balance_blue_ = settings_->balance_blue_;
+        exposure_ = settings_->exposure_;
+        show_focus_ = settings_->show_focus_;
+        gamma_ = settings_->gamma_;
+        show_histogram_ = settings_->show_histogram_;
+        auto_iso_ = settings_->auto_iso_;
+        iso_ = settings_->iso_;
+        show_circles_ = settings_->show_circles_;
+        circles_x_ = settings_->circles_x_;
+        circles_y_ = settings_->circles_y_;
+        show_fps_ = settings_->show_fps_;
+        find_stars_ = settings_->find_stars_;
+        star_command_ = settings_->star_command_;
+        star_param_ = settings_->star_param_;
+        /** must clear star command. **/
+        {
+            settings_->star_command_ = StarCommand::kNone;
+            settings_->star_param_ = 0;
+        }
+        auto_save_ = settings_->auto_save_;
+        subtract_median_ = settings_->subtract_median_;
+        save_file_name_ = std::move(settings_->save_file_name_);
+        raw_file_name_ = std::move(settings_->raw_file_name_);
+        if (settings_->save_path_.size() > 0) {
+            save_path_ = std::move(settings_->save_path_);
+        }
+        right_ascension_ = settings_->right_ascension_;
+        declination_ = settings_->declination_;
+        /**
+        std::move means raid my resources.
+        it does not mean clear them on the way out.
+        **/
+        settings_->save_file_name_.clear();
+        settings_->raw_file_name_.clear();
+        settings_->save_path_.clear();
     }
-    right_ascension_ = settings_->right_ascension_;
-    declination_ = settings_->declination_;
-    /**
-    std::move means raid my resources.
-    it does not mean clear them on the way out.
-    **/
-    settings_->save_file_name_.clear();
-    settings_->raw_file_name_.clear();
-    settings_->save_path_.clear();
 }
 
 void WindowThread::subtractMedian() noexcept {

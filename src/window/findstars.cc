@@ -57,6 +57,39 @@ some issues with this algorithm:
     needs work.
 **/
 void WindowThread::findStars() noexcept {
+
+    /** tsc: these are placeholders for now. **/
+
+    /** handle the star command. **/
+    switch (star_command_) {
+    case StarCommand::kNone:
+    default:
+        break;
+
+    case StarCommand::kBegin:
+        LOG("WindowThread star command: begin list");
+        break;
+
+    case StarCommand::kDelete:
+        LOG("WindowThread star command: delete list["<<star_param_<<"]");
+        break;
+
+    case StarCommand::kDeleteAll:
+        LOG("WindowThread star command: delete all lists");
+        break;
+
+    case StarCommand::kEnd:
+        LOG("WindowThread star command: end list");
+        break;
+
+    case StarCommand::kList:
+        LOG("WindowThread star command: show lists");
+        break;
+    }
+    star_command_ = StarCommand::kNone;
+    star_param_ = 0;
+
+    /** do nothing if not finding stars. **/
     if (find_stars_ == false) {
         return;
     }

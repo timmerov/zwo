@@ -192,7 +192,7 @@ public:
             break;
 
         case 'z':
-            toggleFindStars();
+            handleStarList();
             break;
 
         case '?':
@@ -296,6 +296,10 @@ public:
             LOG("  t [+-01yn]   : stop or resume saving 16 bit tiffs: "<<settings_->auto_save_);
             LOG("  x            : run the experiment of the day");
             LOG("  z [+-01yn]   : find and circle stars: "<<settings_->find_stars_);
+            LOG("  zb           : begin new star list.");
+            LOG("  zd [x]       : delete star list x or all star lists.");
+            LOG("  ze           : end star list.");
+            LOG("  zl           : show star lists.");
             LOG("  ?            : show help");
         }
     }
@@ -728,13 +732,65 @@ public:
         loadConfigFile("experiment.cfg");
     }
 
-    void toggleFindStars() noexcept {
+    void handleStarList() noexcept {
+
+        /** wait for the window thread to consume the previous star command. **/
+        while (settings_->star_command_ != StarCommand::kNone) {
+            agm::sleep::milliseconds(10);
+        }
+
         bool new_find_stars = settings_->find_stars_;
-        toggleOnOff(new_find_stars);
-        LOG("MenuThread find stars: "<<new_find_stars);
+        auto star_command = StarCommand::kNone;
+        int star_param = 0;
+
+        /** simple toggle. **/
+        bool set = toggleOnOff(new_find_stars);
+        if (set) {
+            LOG("MenuThread find stars: "<<new_find_stars);
+        } else {
+            /** complex command. **/
+            int ch = popCommandFromInput();
+            switch (ch) {
+            case 'b':
+                LOG("MenuThread star command: begin list");
+                star_command = StarCommand::kBegin;
+                break;
+
+            case 'd': {
+                std::stringstream ss;
+                ss << input_;
+                star_param = -1;
+                ss >> star_param;
+                if ( star_param < 0) {
+                    LOG("MenuThread star command: delete all lists");
+                    star_command = StarCommand::kDeleteAll;
+                } else {
+                    LOG("MenuThread star command: delete list["<<star_param<<"]");
+                    star_command = StarCommand::kDelete;
+                }
+            } break;
+
+            case 'e':
+                LOG("MenuThread star command: end list");
+                star_command = StarCommand::kEnd;
+                break;
+
+            case 'l':
+                LOG("MenuThread star command: show lists");
+                star_command = StarCommand::kList;
+                break;
+
+            default:
+                LOG("MenuThread invalid star command: '"<<(char)ch<<"'");
+                return;
+            }
+        }
+
         {
             std::lock_guard<std::mutex> lock(settings_->mutex_);
             settings_->find_stars_ = new_find_stars;
+            settings_->star_command_ = star_command;
+            settings_->star_param_ = star_param;
         }
     }
 

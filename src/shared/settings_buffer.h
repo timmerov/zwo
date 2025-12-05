@@ -50,6 +50,15 @@ public:
     char east_west_ = 0;
 };
 
+enum class StarCommand {
+    kNone,
+    kBegin,
+    kDelete,
+    kDeleteAll,
+    kEnd,
+    kList
+};
+
 class Settings {
 public:
     Settings() noexcept = default;
@@ -72,6 +81,8 @@ public:
     double circles_y_ = 0.0;
     bool show_fps_ = false;
     bool find_stars_ = false;
+    StarCommand star_command_ = StarCommand::kNone;
+    int star_param_ = 0;
     bool auto_save_ = false;
     bool subtract_median_ = false;
     std::string load_file_name_;
