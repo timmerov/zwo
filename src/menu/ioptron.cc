@@ -601,9 +601,24 @@ public:
         if (dir == 'n' || dir == 's') {
             /** new declination. **/
             dec_.angle_ += degrees;
-            /** check limits. **/
-            dec_.angle_ = std::min(dec_.angle_, +90.0);
-            dec_.angle_ = std::max(dec_.angle_, -90.0);
+            /**
+            check limits.
+            the declination will always be in the range +90 to -90.
+            when we read it back.
+            but it's perfectly valid to be at +80 degrees.
+            and slew north another +20 degrees.
+            so we can set the goto position to be +100 degrees.
+            let's say the right ascention was unchanged at 3 hours.
+            after the goto completes, we get this:
+                ra = +80
+                dec = 15 hours = 3
+
+            check this.
+            maybe we should just change the goto ra when we slew over the pole.
+            hrm...
+            **/
+            dec_.angle_ = std::min(dec_.angle_, +270.0);
+            dec_.angle_ = std::max(dec_.angle_, -270.0);
             dec_.fromAngle();
         } else {
             /** new right ascension. **/

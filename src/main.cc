@@ -25,8 +25,6 @@ extern agm::Thread *createCaptureThread(ImageDoubleBuffer *image_double_buffer, 
 extern agm::Thread *createWindowThread(ImageDoubleBuffer *image_double_buffer, SettingsBuffer *settings) noexcept;
 extern agm::Thread *createMenuThread(SettingsBuffer *settings) noexcept;
 
-extern void doTheThing() noexcept;
-
 /** start logging and all threads. **/
 int main(
     int argc, char *argv[]
@@ -35,8 +33,6 @@ int main(
     (void) argv;
 
     agm::log::init(TARGET_NAME ".log");
-
-    doTheThing();
 
     /** create the containers. **/
     auto image_double_buffer = ImageDoubleBuffer::create();

@@ -13,23 +13,10 @@ display images in a window.
 #include <shared/image_double_buffer.h>
 #include <shared/settings_buffer.h>
 
-namespace WindowThread {
+#include "findstars.h"
 
-class StarPosition {
-public:
-    double x_;
-    double y_;
-    int r_;
-    double sum_x_;
-    double sum_y_;
-    double sum_;
-    int brightness_;
-    int left_;
-    int top_;
-    int right_;
-    int bottom_;
-};
-typedef std::vector<StarPosition> StarPositions;
+
+namespace WindowThread {
 
 class WindowThread : public agm::Thread, public Settings {
 public:
@@ -66,7 +53,6 @@ public:
     int display_height_ = 0;
     cv::Rect aoi_;
     bool logged_once_ = false;
-    StarPositions star_positions_;
     cv::Mat median16_;
     std::vector<int> median_hist_;
     int black_frames_ = 0;
@@ -75,6 +61,7 @@ public:
     std::vector<int> bad_pixels_;
     int auto_save_counter_ = 0;
     std::string auto_save_name_;
+    StarData star_;
 
     WindowThread(
         ImageDoubleBuffer *image_double_buffer,
@@ -226,48 +213,9 @@ public:
 
     /** vvvvv ----- findstars.cc ----- vvvvv **/
 
-    /**
-    find stars.
-    convert to flat grayscale where rgb are weighted equally.
-    don't use opencv cvtColor.
-    subtract the background using the local median.
-    estimate noise.
-    stars are brighter than the noise.
-    we assume the stars are a symmetric normal distribution.
-
-    find the brightest pixel.
-    bright pixels are at least half as bright as the brightest pixel.
-    find a bounding box.
-    compute the centroid.
-    we want to include 99% of the actual star pixels.
-    we can afford to include background noise pixels.
-    we assume noise is small and will cancel out.
-    we expand the bounding box so 13% to 28% of the pixels int he box are bright.
-    at that point the edges of the box are 2-3 sigma from the center.
-
-    erase every pixel in the box.
-    repeat.
-
-    stars need to have a minimum number of bright pixels.
-    the brightest pixel needs to be above the noise.
-
-    some issues with this algorithm:
-
-        paramaters feel ad hoc.
-
-        sometimes a blob will be detected that touches or overlaps an existing star.
-        one possibility is to ignore it.
-        another possibility is to merge them.
-        the bounding box should include the bounding box of both.
-        which could be problematic.
-        or not.
-        which could also be problematic.
-
-        sometimes we fail to find an obvious star.
-        sometimes we get a lot of false positives.
-        needs work.
-    **/
     void findStars() noexcept;
+
+    void findStarsInImage() noexcept;
 
     int countBrightPixels(
         int cx,
@@ -297,6 +245,21 @@ public:
 
     void findMedianGrays() noexcept;
 
+    void handleStarCommand() noexcept;
+
+    void beginStarList() noexcept;
+
+    void deleteStarList() noexcept;
+
+    void deleteAllStarLists() noexcept;
+
+    void endStarList() noexcept;
+
+    void showStarLists() noexcept;
+
+    void addStarsToList() noexcept;
+
     /** ^^^^^ ----- findstars.cc ----- ^^^^^ **/
 };
+
 } // WindowThread

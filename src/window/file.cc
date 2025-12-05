@@ -300,7 +300,7 @@ void WindowThread::saveStars(
     if (find_stars_ == false) {
         return;
     }
-    int nstars = star_positions_.size();
+    int nstars = star_.positions_.size();
     if (nstars == 0) {
         return;
     }
@@ -325,7 +325,7 @@ void WindowThread::saveStars(
     fs<<"# Right ascension: "<<ra<<std::endl;
     fs<<"# Declination: "<<dec<<std::endl;
     fs<<std::endl;
-    for (auto&& pos : star_positions_) {
+    for (auto&& pos : star_.positions_) {
         fs<<pos.x_<<" "<<pos.y_<<" "<<pos.brightness_<<std::endl;
     }
 }

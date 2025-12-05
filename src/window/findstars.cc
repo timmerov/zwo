@@ -15,6 +15,11 @@ window thread.
 
 namespace WindowThread {
 
+void WindowThread::findStars() noexcept {
+    findStarsInImage();
+    handleStarCommand();
+}
+
 /**
 find stars.
 convert to flat grayscale where rgb are weighted equally.
@@ -56,46 +61,14 @@ some issues with this algorithm:
     sometimes we get a lot of false positives.
     needs work.
 **/
-void WindowThread::findStars() noexcept {
-
-    /** tsc: these are placeholders for now. **/
-
-    /** handle the star command. **/
-    switch (star_command_) {
-    case StarCommand::kNone:
-    default:
-        break;
-
-    case StarCommand::kBegin:
-        LOG("WindowThread star command: begin list");
-        break;
-
-    case StarCommand::kDelete:
-        LOG("WindowThread star command: delete list["<<star_param_<<"]");
-        break;
-
-    case StarCommand::kDeleteAll:
-        LOG("WindowThread star command: delete all lists");
-        break;
-
-    case StarCommand::kEnd:
-        LOG("WindowThread star command: end list");
-        break;
-
-    case StarCommand::kList:
-        LOG("WindowThread star command: show lists");
-        break;
-    }
-    star_command_ = StarCommand::kNone;
-    star_param_ = 0;
-
+void WindowThread::findStarsInImage() noexcept {
     /** do nothing if not finding stars. **/
     if (find_stars_ == false) {
         return;
     }
 
     /** find new stars. **/
-    star_positions_.resize(0);
+    star_.positions_.resize(0);
 
     /** configuration constants. **/
     static const double kThresholdStdDevs = 0.0;
@@ -150,7 +123,7 @@ void WindowThread::findStars() noexcept {
 
     /** find at most N stars. **/
     for(;;) {
-        int nstars = star_positions_.size();
+        int nstars = star_.positions_.size();
         if (nstars >= kMaxCount) {
             break;
         }
@@ -217,7 +190,7 @@ void WindowThread::findStars() noexcept {
         auto existing_star = checkCollision(star);
         if (existing_star == nullptr) {
             /** save the star. **/
-            star_positions_.push_back(star);
+            star_.positions_.push_back(star);
 
             //LOG("Found star["<<nstars<<"] at "<<max_x<<","<<max_y<<" size="<<square_radius<<" max="<<max_val<<" area="<<area<<" count="<<bright_pixels<<".");
             continue;
@@ -353,7 +326,7 @@ void WindowThread::eraseBlob(
 StarPosition *WindowThread::checkCollision(
     StarPosition& candidate
 ) noexcept {
-    for (auto&& star : star_positions_) {
+    for (auto&& star : star_.positions_) {
         if (candidate.left_ <= star.right_
         &&  candidate.right_ > star.left_
         &&  candidate.top_ <= star.bottom_
@@ -369,7 +342,7 @@ void WindowThread::showStars() noexcept {
         return;
     }
 
-    for (auto&& star : star_positions_) {
+    for (auto&& star : star_.positions_) {
         int x = std::round(star.x_);
         int y = std::round(star.y_);
         drawCircle(x, y, star.r_);
@@ -566,6 +539,107 @@ void WindowThread::findMedianGrays() noexcept {
             pmedian16[wd * y + x] = px;
         }
     }
+}
+
+void WindowThread::handleStarCommand() noexcept {
+    /** handle the star command. **/
+    switch (star_command_) {
+    case StarCommand::kNone:
+    default:
+        break;
+
+    case StarCommand::kBegin:
+        beginStarList();
+        break;
+
+    case StarCommand::kDelete:
+        deleteStarList();
+        break;
+
+    case StarCommand::kDeleteAll:
+        deleteAllStarLists();
+        break;
+
+    case StarCommand::kEnd:
+        endStarList();
+        break;
+
+    case StarCommand::kList:
+        showStarLists();
+        break;
+    }
+    star_command_ = StarCommand::kNone;
+    star_param_ = 0;
+}
+
+void WindowThread::beginStarList() noexcept {
+    /** end the current list without the current stars. **/
+    if (star_.building_list_) {
+        endStarList();
+    }
+
+    LOG("WindowThread star command: begin list");
+    star_.building_list_ = true;
+    StarPositions list;
+    star_.lists_.push_back(list);
+    addStarsToList();
+}
+
+void WindowThread::deleteStarList() noexcept {
+    LOG("WindowThread star command: delete list["<<star_param_<<"]");
+    int nlists = star_.lists_.size();
+    if (nlists == 0) {
+        LOG("WindowThread there are no star lists to delete.");
+        return;
+    }
+    if (star_param_ < 0 || star_param_ >= nlists) {
+        if (nlists == 0) {
+            LOG("WindowThread list[0] is the only list.");
+            return;
+        }
+        LOG("WindowThread please specify a list between 0 and "<<nlists-1);
+        return;
+    }
+    star_.lists_.erase(star_.lists_.begin() + star_param_);
+    LOG("WindowThread list["<<star_param_<<"] deleted");
+}
+
+void WindowThread::deleteAllStarLists() noexcept {
+    LOG("WindowThread star command: delete all lists");
+    star_.building_list_ = false;
+    star_.lists_.clear();
+}
+
+void WindowThread::endStarList() noexcept {
+    LOG("WindowThread star command: end list");
+    addStarsToList();
+    star_.building_list_ = false;
+}
+
+void WindowThread::showStarLists() noexcept {
+    LOG("WindowThread star command: show lists");
+    int nlists = star_.lists_.size();
+    for (int i = 0; i < nlists; ++i) {
+        LOG("WindowThread star list["<<i<<"]:");
+        auto& list = star_.lists_[i];
+        int nstars = list.size();
+        for (int k = 0; k < nstars; ++k) {
+            auto& star = list[k];
+            LOG("WindowThread Found star["<<k<<"] at "<<star.x_<<","<<star.y_);
+        }
+    }
+}
+
+void WindowThread::addStarsToList() noexcept {
+    LOG("adding stars to list.");
+    int nlists = star_.lists_.size();
+    if (nlists <= 0) {
+        return;
+    }
+
+    /** tsc: just replace the list for now. **/
+    auto& list = star_.lists_[nlists-1];
+    list = star_.positions_;
 }
 
 } // WindowThread
