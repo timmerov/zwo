@@ -10,6 +10,7 @@ window thread.
 
 #include <opencv2/opencv.hpp>
 
+#include "levenberg_marquardt.h"
 #include "window.h"
 
 
@@ -326,7 +327,7 @@ void WindowThread::eraseBlob(
 StarPosition *WindowThread::checkCollision(
     StarPosition& candidate
 ) noexcept {
-    for (auto&& star : star_.positions_) {
+    for (auto &&star : star_.positions_) {
         if (candidate.left_ <= star.right_
         &&  candidate.right_ > star.left_
         &&  candidate.top_ <= star.bottom_
@@ -342,7 +343,7 @@ void WindowThread::showStars() noexcept {
         return;
     }
 
-    for (auto&& star : star_.positions_) {
+    for (auto &&star : star_.positions_) {
         int x = std::round(star.x_);
         int y = std::round(star.y_);
         drawCircle(x, y, star.r_);
@@ -555,6 +556,10 @@ void WindowThread::handleStarCommand() noexcept {
         beginStarList();
         break;
 
+    case StarCommand::kCalculateCenter:
+        calculateCenter();
+        break;
+
     case StarCommand::kDelete:
         deleteStarList();
         break;
@@ -627,7 +632,7 @@ void WindowThread::endStarList() noexcept {
     }
 
     /** delete the last list if empty. **/
-    auto& list = star_.lists_.back();
+    auto &list = star_.lists_.back();
     int nstars = list.size();
     if (nstars == 0) {
         list.pop_back();
@@ -636,11 +641,19 @@ void WindowThread::endStarList() noexcept {
 
     /** copy all of the reliable stars to a new list. **/
     StarPositions reliable_list;
-    for (auto&& star : list) {
+    for (auto &&star : list) {
         if (star.found_ > star.missed_) {
             reliable_list.push_back(star);
         }
     }
+
+    /** sort the list by brightest first. **/
+    auto brightest = [](
+        const StarPosition &a, const StarPosition &b
+    ) noexcept {
+        return a.brightness_ > b.brightness_;
+    };
+    std::sort(reliable_list.begin(), reliable_list.end(), brightest);
 
     /** replace the star list. **/
     list = std::move(reliable_list);
@@ -651,11 +664,11 @@ void WindowThread::showStarLists() noexcept {
     int nlists = star_.lists_.size();
     for (int i = 0; i < nlists; ++i) {
         LOG("WindowThread star list["<<i<<"]:");
-        auto& list = star_.lists_[i];
+        auto &list = star_.lists_[i];
         int nstars = list.size();
         for (int k = 0; k < nstars; ++k) {
-            auto& star = list[k];
-            LOG("WindowThread Found star["<<k<<"] at "<<star.x_<<","<<star.y_<<" reliability="<<star.found_<<":"<<star.missed_);
+            auto &star = list[k];
+            LOG("WindowThread Found star["<<k<<"] at "<<star.x_<<","<<star.y_<<" bright="<<star.brightness_<<" reliability="<<star.found_<<":"<<star.missed_);
         }
     }
 }
@@ -668,7 +681,7 @@ void WindowThread::addStarsToList() noexcept {
     }
 
     /** get the current list. **/
-    auto& list = star_.lists_.back();
+    auto &list = star_.lists_.back();
 
     /** copy the current list to an empty master list. */
     int nlist = list.size();
@@ -676,7 +689,7 @@ void WindowThread::addStarsToList() noexcept {
         LOG("copying stars to list.");
         list = star_.positions_;
         /** set the counts. **/
-        for (auto&& star : list) {
+        for (auto &&star : list) {
             star.found_ = 1;
             star.missed_ = 0;
         }
@@ -703,9 +716,9 @@ void WindowThread::addStarsToList() noexcept {
     finding a star means what?
     the bounding boxes overlap?
     **/
-    for (auto&& candidate : star_.positions_) {
+    for (auto &&candidate : star_.positions_) {
         bool found = false;
-        for (auto&& star : list) {
+        for (auto &&star : list) {
             if (candidate.left_ < star.right_
             &&  candidate.right_ > star.left_
             &&  candidate.top_ < star.bottom_
@@ -720,12 +733,12 @@ void WindowThread::addStarsToList() noexcept {
         }
         if (found == false) {
             list.push_back(candidate);
-            auto& added = list.back();
+            auto &added = list.back();
             added.found_ = 1;
             added.missed_ = reliability;
         }
     }
-    for (auto&& star : list) {
+    for (auto &&star : list) {
         int rel = star.found_ + star.missed_;
         if (rel <= reliability) {
             ++star.missed_;
@@ -733,42 +746,45 @@ void WindowThread::addStarsToList() noexcept {
     }
 }
 
-} // WindowThread
-
-#include "levenberg_marquardt.h"
-
-class DoTheThing : public LevenbergMarquardt {
+class CalculateCenter : public LevenbergMarquardt {
 public:
-    DoTheThing() = default;
-    virtual ~DoTheThing() = default;
+    CalculateCenter() = default;
+    virtual ~CalculateCenter() = default;
 
     /**
     params[0] = center x in pixels ~ 1000
     params[1] = center y in pixels ~ 1000
     params[2] = angle in arcseconds - 1000
+    params[3]...
     **/
     static constexpr int kNParams = 3;
 
     /**
-    givens[i] = x,y for 4 stars
+    givens[i] = x,y for N stars
     **/
     Eigen::VectorXd start_positions_;
 
     /**
     data points aka targets
-    data points[i] = x,y for 4 stars
+    data points[i] = x,y for N*M stars
     **/
-    static constexpr int kNDataPoints = 2 * 4;
 
     /** configuration. **/
-    static constexpr double kEpsilon = 0.001;
-    static constexpr double kMinErrorChange = 0.00001;
+    static constexpr double kEpsilon = 0.1;
+    static constexpr double kMinErrorChange = 0.001;
 
     static constexpr double kPi = 3.141592653589793238462643383279502884L;
 
-    void run() noexcept {
+    void run(
+        const StarLists &lists
+    ) noexcept {
+        /** tsc: use the first two lists. **/
+        auto &list0 = lists[0];
+        auto &list1 = lists[1];
+        int nstars = list0.size();
+
         /** mandatory. **/
-        ndata_points_ = kNDataPoints;
+        ndata_points_ = 2 * nstars;
         nparams_ = kNParams;
         /** configurations. **/
         verbosity_ = Verbosity::kQuiet;
@@ -777,24 +793,23 @@ public:
 
         /** set the initial guess. **/
         solution_.resize(kNParams);
-        solution_ << 0.0, 0.0, 0.0;
+        /** tsc: ooo ad hoc. **/
+        solution_ << 0.0, 4000.0, 0.0;
 
-        start_positions_.resize(kNDataPoints);
-        targets_.resize(kNDataPoints);
+        start_positions_.resize(ndata_points_);
+        targets_.resize(ndata_points_);
 
         /** x0,y0 **/
-        start_positions_ <<
-             501.411, 765.932,
-            1012.370, 169.144,
-             627.795, 405.169,
-            1408.960, 537.963;
+        for (int i = 0; i < nstars; ++i) {
+            start_positions_[2*i] = list0[i].x_;
+            start_positions_[2*i+1] = list0[i].y_;
+        }
 
         /** x1,y1 **/
-        targets_ <<
-             515.372, 778.284,
-            1038.24,  189.860,
-             649.4,   417.772,
-            1428.44,  566.551;
+        for (int i = 0; i < nstars; ++i) {
+            targets_[2*i] = list1[i].x_;
+            targets_[2*i+1] = list1[i].y_;
+        }
 
         /** solve for the params. **/
         solve();
@@ -822,7 +837,7 @@ public:
         double cosa = std::cos(angle);
 
         /** calculate the target positions. **/
-        for (int i = 0; i < kNDataPoints; i += 2) {
+        for (int i = 0; i < ndata_points_; i += 2) {
             double x0 = start_positions_[i];
             double y0 = start_positions_[i+1];
 
@@ -841,10 +856,21 @@ public:
     }
 };
 
-void doTheThing() noexcept {
-    DoTheThing dtt;
-    dtt.run();
+void WindowThread::calculateCenter() noexcept {
+    int nlists = star_.lists_.size();
+    if (nlists < 2) {
+        LOG("WindowThread at least 2 star lists are needed to calculate the center.");
+        return;
+    }
+
+    /** tsc: pair up the stars in the lists. **/
+
+    /** do the math. **/
+    CalculateCenter cc;
+    cc.run(star_.lists_);
+
+    /** tsc: center x,y is in cc.solution_[0,1] **/
 }
 
 
-
+} // WindowThread

@@ -53,6 +53,7 @@ public:
 enum class StarCommand {
     kNone,
     kBegin,
+    kCalculateCenter,
     kDelete,
     kDeleteAll,
     kEnd,

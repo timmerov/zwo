@@ -297,6 +297,7 @@ public:
             LOG("  x            : run the experiment of the day");
             LOG("  z [+-01yn]   : find and circle stars: "<<settings_->find_stars_);
             LOG("  zb           : begin new star list.");
+            LOG("  zc           : calculate center from star lists.");
             LOG("  zd [x]       : delete star list x or all star lists.");
             LOG("  ze           : end star list.");
             LOG("  zl           : show star lists.");
@@ -754,6 +755,11 @@ public:
             case 'b':
                 LOG("MenuThread star command: begin list");
                 star_command = StarCommand::kBegin;
+                break;
+
+            case 'c':
+                LOG("MenuThread star command: calculate center");
+                star_command = StarCommand::kCalculateCenter;
                 break;
 
             case 'd': {

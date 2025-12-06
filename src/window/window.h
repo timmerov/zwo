@@ -259,6 +259,8 @@ public:
 
     void addStarsToList() noexcept;
 
+    void calculateCenter() noexcept;
+
     /** ^^^^^ ----- findstars.cc ----- ^^^^^ **/
 };
 
