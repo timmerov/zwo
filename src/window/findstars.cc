@@ -794,7 +794,7 @@ public:
         /** set the initial guess. **/
         solution_.resize(kNParams);
         /** tsc: ooo ad hoc. **/
-        solution_ << 0.0, 4000.0, 0.0;
+        solution_ << 0.0, 0.0, 0.0;
 
         start_positions_.resize(ndata_points_);
         targets_.resize(ndata_points_);
@@ -813,12 +813,6 @@ public:
 
         /** solve for the params. **/
         solve();
-
-        /** interpret the results. **/
-        double cx = solution_[0];
-        double cy = solution_[1];
-        double arcs = solution_[2];
-        LOG("polar center="<<cx<<","<<cy<<" rotation="<<arcs<<"\"");
     }
 
     virtual void makePrediction(
@@ -857,19 +851,51 @@ public:
 };
 
 void WindowThread::calculateCenter() noexcept {
+    /** need 2+ star lists. **/
     int nlists = star_.lists_.size();
     if (nlists < 2) {
         LOG("WindowThread at least 2 star lists are needed to calculate the center.");
         return;
     }
 
-    /** tsc: pair up the stars in the lists. **/
+    /** must be same size. **/
+    auto& list0 = star_.lists_[0];
+    auto& list1 = star_.lists_[1];
+    int nstars0 = list0.size();
+    int nstars1 = list1.size();
+    if (nstars0 != nstars1) {
+        LOG("WindowThread star list[0]:"<<nstars0<<" and list[1]:"<<nstars1<<" must be the same size.");
+        return;
+    }
+
+    /** pair up the stars in the lists. **/
+    for (int i = 0; i < nstars0; ++i) {
+        auto &star0 = list0[i];
+        double min_dist = 1e10;
+        int min_idx = -1;
+        for (int k = i; k < nstars1; ++k) {
+            auto &star1 = list1[k];
+            double dx = star0.x_ - star1.x_;
+            double dy = star0.y_ - star1.y_;
+            double dist = dx * dx + dy * dy;
+            if (dist < min_dist) {
+                min_dist = dist;
+                min_idx = k;
+            }
+        }
+        if (min_idx != i) {
+            std::swap(list1[i], list1[min_idx]);
+        }
+    }
 
     /** do the math. **/
     CalculateCenter cc;
     cc.run(star_.lists_);
 
-    /** tsc: center x,y is in cc.solution_[0,1] **/
+    /** center x,y is in cc.solution_[0,1] **/
+    double center_x = cc.solution_[0];
+    double center_y = cc.solution_[1];
+    LOG("WindowThread calculated center is "<<center_x<<","<<center_y);
 }
 
 
