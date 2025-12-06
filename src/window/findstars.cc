@@ -546,6 +546,9 @@ void WindowThread::handleStarCommand() noexcept {
     switch (star_command_) {
     case StarCommand::kNone:
     default:
+        if (star_.building_list_) {
+            addStarsToList();
+        }
         break;
 
     case StarCommand::kBegin:
@@ -561,6 +564,9 @@ void WindowThread::handleStarCommand() noexcept {
         break;
 
     case StarCommand::kEnd:
+        if (star_.building_list_) {
+            addStarsToList();
+        }
         endStarList();
         break;
 
@@ -612,8 +618,32 @@ void WindowThread::deleteAllStarLists() noexcept {
 
 void WindowThread::endStarList() noexcept {
     LOG("WindowThread star command: end list");
-    addStarsToList();
     star_.building_list_ = false;
+
+    /** done if there are no lists. **/
+    int nlists = star_.lists_.size();
+    if (nlists == 0) {
+        return;
+    }
+
+    /** delete the last list if empty. **/
+    auto& list = star_.lists_.back();
+    int nstars = list.size();
+    if (nstars == 0) {
+        list.pop_back();
+        return;
+    }
+
+    /** copy all of the reliable stars to a new list. **/
+    StarPositions reliable_list;
+    for (auto&& star : list) {
+        if (star.found_ > star.missed_) {
+            reliable_list.push_back(star);
+        }
+    }
+
+    /** replace the star list. **/
+    list = std::move(reliable_list);
 }
 
 void WindowThread::showStarLists() noexcept {
@@ -625,7 +655,7 @@ void WindowThread::showStarLists() noexcept {
         int nstars = list.size();
         for (int k = 0; k < nstars; ++k) {
             auto& star = list[k];
-            LOG("WindowThread Found star["<<k<<"] at "<<star.x_<<","<<star.y_);
+            LOG("WindowThread Found star["<<k<<"] at "<<star.x_<<","<<star.y_<<" reliability="<<star.found_<<":"<<star.missed_);
         }
     }
 }
@@ -637,9 +667,70 @@ void WindowThread::addStarsToList() noexcept {
         return;
     }
 
-    /** tsc: just replace the list for now. **/
-    auto& list = star_.lists_[nlists-1];
-    list = star_.positions_;
+    /** get the current list. **/
+    auto& list = star_.lists_.back();
+
+    /** copy the current list to an empty master list. */
+    int nlist = list.size();
+    if (nlist == 0) {
+        LOG("copying stars to list.");
+        list = star_.positions_;
+        /** set the counts. **/
+        for (auto&& star : list) {
+            star.found_ = 1;
+            star.missed_ = 0;
+        }
+        return;
+    }
+
+    /** get the total counts from the first star. **/
+    int reliability = list[0].found_ + list[0].missed_;
+    LOG("merging lists reliability="<<reliability);
+
+    /**
+    algorithm:
+    for each star in the new list...
+    find it in the old list.
+        increment found but only once
+    if not found
+        add it to the list
+        found = 1
+        missed = reliability
+    for each star in the old list
+        if found + missed == reliability
+        then increment missed
+
+    finding a star means what?
+    the bounding boxes overlap?
+    **/
+    for (auto&& candidate : star_.positions_) {
+        bool found = false;
+        for (auto&& star : list) {
+            if (candidate.left_ < star.right_
+            &&  candidate.right_ > star.left_
+            &&  candidate.top_ < star.bottom_
+            &&  candidate.bottom_ > star.top_) {
+                int rel = star.found_ + star.missed_;
+                if (rel <= reliability) {
+                    ++star.found_;
+                }
+                found = true;
+                break;
+            }
+        }
+        if (found == false) {
+            list.push_back(candidate);
+            auto& added = list.back();
+            added.found_ = 1;
+            added.missed_ = reliability;
+        }
+    }
+    for (auto&& star : list) {
+        int rel = star.found_ + star.missed_;
+        if (rel <= reliability) {
+            ++star.missed_;
+        }
+    }
 }
 
 } // WindowThread
