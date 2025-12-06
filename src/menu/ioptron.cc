@@ -213,42 +213,6 @@ public:
         response = port_.read(1);
         LOG("IOptron Set sidereal tracking rate [:RT0#]: "<<response);
 
-    #if 0
-        port_.write(":Q#");
-        response = port_.read(1);
-        LOG("IOptron Slewing stopped: "<<response);
-
-        port_.write(":q#");
-        response = port_.read(1);
-        LOG("IOptron Stopped moving by arrow keys: "<<response);
-
-        port_.write(":ST1#");
-        response = port_.read(1);
-        LOG("IOptron Started tracking [:ST1#]: "<<response);
-
-        agm::sleep::seconds(2);
-
-        port_.write(":mn#");
-        LOG("IOptron Moving north...");
-        port_.write(":me#");
-        LOG("IOptron Moving east...");
-
-        agm::sleep::seconds(2);
-        port_.write(":q#");
-        response = port_.read(1);
-        LOG("IOptron Stopped: "<<response);
-
-        agm::sleep::seconds(2);
-        port_.write(":ST0#");
-        response = port_.read(1);
-        LOG("IOptron Stop tracking [:ST0#]: "<<response);
-
-        agm::sleep::seconds(2);
-        port_.write(":MH#");
-        response = port_.read(1);
-        LOG("IOptron Slew to home position [:MH#]: "<<response);
-    #endif
-
         return true;
     }
 
@@ -601,37 +565,39 @@ public:
         if (dir == 'n' || dir == 's') {
             /** new declination. **/
             dec_.angle_ += degrees;
-            /**
-            check limits.
-            the declination will always be in the range +90 to -90.
-            when we read it back.
-            but it's perfectly valid to be at +80 degrees.
-            and slew north another +20 degrees.
-            so we can set the goto position to be +100 degrees.
-            let's say the right ascention was unchanged at 3 hours.
-            after the goto completes, we get this:
-                ra = +80
-                dec = 15 hours = 3
-
-            check this.
-            maybe we should just change the goto ra when we slew over the pole.
-            hrm...
-            **/
-            dec_.angle_ = std::min(dec_.angle_, +270.0);
-            dec_.angle_ = std::max(dec_.angle_, -270.0);
-            dec_.fromAngle();
         } else {
             /** new right ascension. **/
             ra_.angle_ += degrees;
-            /** check limits. **/
-            while (ra_.angle_ < 0.0) {
-                ra_.angle_ += 360.0;
-            }
-            while (ra_.angle_ >= 360.0) {
-                ra_.angle_ -= 360.0;
-            }
-            ra_.fromAngle();
         }
+
+        /** normalize declination. **/
+        while (dec_.angle_ >= +180.0) {
+            dec_.angle_ -= 360.0;
+        }
+        while (dec_.angle_ <= -180.0) {
+            dec_.angle_ += 360.0;
+        }
+        /** turn around when we go over the top. **/
+        while (dec_.angle_ > +90.0) {
+            dec_.angle_ = 180.0 - dec_.angle_;
+            ra_.angle_ += 180.0;
+        }
+        /** turn around when we go under the bottom. **/
+        while (dec_.angle_ < -90.0) {
+            dec_.angle_ = -180.0 - dec_.angle_;
+            ra_.angle_ += 180.0;
+        }
+        /** normalize right ascension. **/
+        while (ra_.angle_ >= +360.0) {
+            ra_.angle_ -= 360.0;
+        }
+        while (ra_.angle_ <= -360.0) {
+            ra_.angle_ += 360.0;
+        }
+
+        /** convert angles to hrs mins secs. **/
+        dec_.fromAngle();
+        ra_.fromAngle();
 
         /** share the new ra and dec. **/
         shareRightAscensionDeclination();
