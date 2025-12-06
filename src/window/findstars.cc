@@ -891,11 +891,49 @@ void WindowThread::calculateCenter() noexcept {
     /** do the math. **/
     CalculateCenter cc;
     cc.run(star_.lists_);
-
     /** center x,y is in cc.solution_[0,1] **/
+
+    /**
+    the initial solution is 0,0 top left.
+    sanity check the solution.
+    try again if it's insane.
+    try 2 screen widths to the left.
+    then rotate 90 degrees.
+    repeat total of 4 times.
+    **/
+    int display_size = std::max(img_->width_, img_->height_);
+    double limit = 10.0 * double(display_size);
+    double max = std::max(std::abs(cc.solution_[0]), std::abs(cc.solution_[1]));
+    if (max > limit) {
+        //LOG("solution is insane: "<<max);
+        double center_x = -2.0 * double(display_size);
+        double center_y = 0.0;
+        for (int i = 0; i < 4; ++i) {
+            cc.solution_[0] = center_x + double(img_->width_) / 2.0;
+            cc.solution_[1] = center_y + double(img_->height_) / 2.0;
+            cc.solution_[2] = 0.0;
+            cc.solve();
+            max = std::max(std::abs(cc.solution_[0]), std::abs(cc.solution_[1]));
+            if (max < limit) {
+                //LOG("solution is sane");
+                break;
+            }
+            //LOG("solution is insane: "<<max);
+            /** rotate 90 degrees. **/
+            std::swap(center_x, center_y);
+            center_x = - center_x;
+        }
+    }
+
+    /**
+    report the solution.
+    convert sum of squares error to pixel error.
+    **/
     double center_x = cc.solution_[0];
     double center_y = cc.solution_[1];
-    LOG("WindowThread calculated center is "<<center_x<<","<<center_y);
+    double angle = cc.solution_[2];
+    double error = std::sqrt(cc.error_ / double(cc.ndata_points_));
+    LOG("WindowThread calculated center is "<<center_x<<","<<center_y<<" angle: "<<angle<<"\""<<" error: "<<error<<" px");
 }
 
 

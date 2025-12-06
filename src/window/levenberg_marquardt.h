@@ -45,6 +45,9 @@ public:
     double good_error_ = 0.01;
     double min_error_change_ = 0.0001;
 
+    /** outputs **/
+    double error_ = 0.0;
+
     /** must implement this. **/
     virtual void makePrediction(
         const Eigen::VectorXd &solution,

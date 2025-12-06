@@ -123,6 +123,9 @@ void LevenbergMarquardt::solve() noexcept {
         }
     }
 
+    /** expose the error. **/
+    error_ = error;
+
     /** results **/
     if (verbosity_ >= Verbosity::kResultsOnly
     &&  verbosity_ <= Verbosity::kDetailedResults) {
