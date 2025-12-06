@@ -98,37 +98,6 @@ gamma: 0.4
 
 to do list:
 
-- transfer input from window to menu.
-queue keystrokes in window thread until return.
-then append to command queue.
-menu thread appends stdin to command queue.
-menu thread executes commands in the queue.
-add load script command to menu.
-
-- account for leakage.
-identify bad pixels.
-subtract leakage from every pixel.
-place cover.
-find average dark for each pixel.
-find average and std dev for all pixels.
-mark any pixel more than N std dev from mean as bad.
-remove cover.
-
-- black menu handling
-bc - clear black data
-ba N - accumulate black data and find bad pixels for N frames.
-bs X - subtract black average + X * std dev.
-when there is black data...
-zero image edge pixels for simplicity.
-replace image bad pixels with average of neighbors.
-subtract black[x,y] + X * std dev from every pixel.
-
-- subtract sky background.
-divide the image into 16 regions.
-find median pixel color in each region.
-fit to a 2d gradient.
-subtract from image to make the background black.
-
 
 random ideas:
 
