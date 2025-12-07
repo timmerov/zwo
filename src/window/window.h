@@ -43,9 +43,6 @@ public:
     double base_stddev_ = 0.0;
     int gamma_max_ = 0;
     agm::uint8 *gamma_table_ = nullptr;
-    int *histr_ = nullptr;
-    int *histg_ = nullptr;
-    int *histb_ = nullptr;
     int nstacked_ = 0;
     agm::int64 fps_start_ = 0;
     int fps_count_ = 0;
@@ -99,13 +96,6 @@ public:
     void gammaPowerScale() noexcept;
 
     void balanceColors() noexcept;
-
-    void showHistogram() noexcept;
-
-    void plotHistogram(
-        int *hist,
-        int color
-    ) noexcept;
 
     /** the gamma table maps 16 bit to 8 bit. **/
     void initGammaTable() noexcept;

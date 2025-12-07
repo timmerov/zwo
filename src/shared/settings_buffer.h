@@ -77,7 +77,6 @@ public:
     double gamma_ = 1.0;
     bool auto_iso_ = false;
     int iso_ = 100; /*no scaling*/
-    bool show_histogram_ = false;
     bool show_circles_ = false;
     double circles_x_ = 0.0;
     double circles_y_ = 0.0;

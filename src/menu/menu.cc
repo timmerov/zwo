@@ -146,10 +146,6 @@ public:
             toggleGamma();
             break;
 
-        case 'h':
-            toggleHistogram();
-            break;
-
         case 'i':
             toggleIso();
             break;
@@ -275,7 +271,6 @@ public:
             LOG("  e usecs      : set exposure microseconds (disables auto): "<<settings_->exposure_);
             LOG("  f [+-01yn]   : toggle manual focus helper: "<<settings_->show_focus_);
             LOG("  g pwr        : set gamma (1.0): "<<settings_->gamma_);
-            LOG("  h [+-01yn]   : toggle histogram: "<<settings_->show_histogram_);
             LOG("  i [+-01yn]   : toggle auto iso linear scaling: "<<settings_->auto_iso_);
             LOG("  i iso        : set iso linear scaling [100 none] (disables auto): "<<settings_->iso_);
             LOG("  k [+-01yn]   : toggle collimation circles: "<<settings_->show_circles_);
@@ -391,16 +386,6 @@ public:
         {
             std::lock_guard<std::mutex> lock(settings_->mutex_);
             settings_->gamma_ = new_gamma;
-        }
-    }
-
-    void toggleHistogram() noexcept {
-        bool new_histogram = settings_->show_histogram_;
-        toggleOnOff(new_histogram);
-        LOG("MenuThread histogram: "<<new_histogram);
-        {
-            std::lock_guard<std::mutex> lock(settings_->mutex_);
-            settings_->show_histogram_ = new_histogram;
         }
     }
 
@@ -832,9 +817,7 @@ public:
         LOG("-- Wait for black levels to settle.");
         LOG("-- Disable capture black. B");
         LOG("-- Remove lens cap from camera.");
-        LOG("-- Enable histogram. H");
         LOG("-- Balance colors. C r b");
-        LOG("-- Disable histogram. H");
         LOG("-- Stack (accumulate) images. A");
         LOG("-- Wait as long as you wish.");
         LOG("-- Save the image.");

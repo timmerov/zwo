@@ -146,9 +146,6 @@ WindowThread::WindowThread(
     /** find stars. **/
     findStars();
 
-    /** show histogram. **/
-    showHistogram();
-
     /** show collimation circlex. **/
     showCollimationCircles();
 
@@ -269,7 +266,6 @@ void WindowThread::copySettings() noexcept {
         exposure_ = settings_->exposure_;
         show_focus_ = settings_->show_focus_;
         gamma_ = settings_->gamma_;
-        show_histogram_ = settings_->show_histogram_;
         auto_iso_ = settings_->auto_iso_;
         iso_ = settings_->iso_;
         show_circles_ = settings_->show_circles_;
@@ -555,114 +551,6 @@ void WindowThread::balanceColors() noexcept {
         b = std::round(b * balance_blue_);
         ptr[2] = r;
         ptr[0] = b;
-        ptr += 3;
-    }
-}
-
-void WindowThread::showHistogram() noexcept {
-    if (show_histogram_ == false) {
-        return;
-    }
-
-    int wd = img_->width_;
-    int ht = img_->height_;
-    int hist_sz = wd + 1;
-    if (histr_ == nullptr) {
-        histr_ = new(std::nothrow) int[hist_sz];
-        histg_ = new(std::nothrow) int[hist_sz];
-        histb_ = new(std::nothrow) int[hist_sz];
-        for (int i = 0; i < hist_sz; ++i) {
-            histr_[i] = 0;
-            histg_[i] = 0;
-            histb_[i] = 0;
-        }
-    }
-    for (int i = 0; i < hist_sz; ++i) {
-        histr_[i] = histr_[i] * 95 / 100;
-        histg_[i] = histg_[i] * 95 / 100;
-        histb_[i] = histb_[i] * 95 / 100;
-    }
-    int sz = wd * ht;
-    auto ptr = (agm::uint16 *) rgb16_.data;
-    for (int i = 0; i < sz; ++i) {
-        int r = ptr[2];
-        int g = ptr[1];
-        int b = ptr[0];
-        ptr += 3;
-        r = r * wd / 65536;
-        g = g * wd / 65536;
-        b = b * wd / 65536;
-        r = std::max(0, std::min(r, wd));
-        g = std::max(0, std::min(g, wd));
-        b = std::max(0, std::min(b, wd));
-        ++histr_[r];
-        ++histg_[g];
-        ++histb_[b];
-    }
-
-    plotHistogram(histr_, 2);
-    plotHistogram(histg_, 1);
-    plotHistogram(histb_, 0);
-}
-
-void WindowThread::plotHistogram(
-    int *hist,
-    int color
-) noexcept {
-#if 0
-    /**
-    plotting the histogram as a log has potential.
-    the max value of the histogram would be about 20*wd*ht.
-    if everything were evenly distributed it would be about 20*ht.
-    we want 20*ht to be about half way up the screen.
-    but that puts tiny values way too high.
-    i suppose we could look this up in a table for speed.
-    but it might be kinda big.
-    **/
-    (void) hist;
-    (void) color;
-    int wd = img_->width_;
-    int ht = img_->height_;
-    int htm1 = ht - 1;
-    auto ptr = (agm::uint16 *) rgb16_.data;
-
-    for (int x = 0; x < wd; ++x) {
-        int y = std::round(double(ht) * std::pow(double(x)/double(wd), k));
-        y = htm1 - y;
-        y = std::max(0, std::min(y, htm1));
-        LOG("x="<<x<<" y="<<y);
-        auto dst = &ptr[3*wd*y];
-        for (int i = 0; i < 3; ++i) {
-            dst[i] = 65535;
-        }
-        ptr += 3;
-    }
-#endif
-
-    int wd = img_->width_;
-    int ht = img_->height_;
-    int htm1 = ht - 1;
-    double mx = double(20 * wd * ht);
-    double k = std::log(2.0) / std::log(double(wd));
-    auto ptr = (agm::uint16 *) rgb16_.data;
-    for (int x = 0; x < wd; ++x) {
-        int c0 = hist[x+0];
-        int c1 = hist[x+1];
-        c0 = std::round(double(ht) * std::pow(double(c0)/mx, k));
-        c1 = std::round(double(ht) * std::pow(double(c1)/mx, k));
-        //c0 = c0 / 400;
-        //c1 = c1 / 400;
-        c0 = std::max(0, std::min(c0, htm1));
-        c1 = std::max(0, std::min(c1, htm1));
-        c0 = htm1 - c0;
-        c1 = htm1 - c1;
-        if (c0 > c1) {
-            std::swap(c0, c1);
-        }
-        for (int y = c0; y <= c1; ++y) {
-            auto dst = &ptr[3*wd*y];
-            dst[color] = 65535;
-        }
         ptr += 3;
     }
 }
