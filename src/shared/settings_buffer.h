@@ -57,7 +57,8 @@ enum class StarCommand {
     kDelete,
     kDeleteAll,
     kEnd,
-    kList
+    kList,
+    kSave
 };
 
 class Settings {
@@ -91,6 +92,7 @@ public:
     std::string raw_file_name_;
     std::string save_path_;
     std::string input_;
+    std::string star_file_name_;
     ArcSeconds right_ascension_;
     ArcSeconds declination_;
 };

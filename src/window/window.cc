@@ -291,6 +291,7 @@ void WindowThread::copySettings() noexcept {
         if (settings_->save_path_.size() > 0) {
             save_path_ = std::move(settings_->save_path_);
         }
+        star_file_name_ = std::move(settings_->star_file_name_);
         right_ascension_ = settings_->right_ascension_;
         declination_ = settings_->declination_;
         /**
@@ -300,6 +301,7 @@ void WindowThread::copySettings() noexcept {
         settings_->save_file_name_.clear();
         settings_->raw_file_name_.clear();
         settings_->save_path_.clear();
+        settings_->star_file_name_.clear();
     }
 }
 

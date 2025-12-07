@@ -209,6 +209,9 @@ public:
     /** save star information to text file. **/
     void saveStars(const std::string& filename) noexcept;
 
+    /** save the star list to the text file. **/
+    void saveStarLists() noexcept;
+
     /** ^^^^^ ----- file.cc ----- ^^^^^ **/
 
     /** vvvvv ----- findstars.cc ----- vvvvv **/

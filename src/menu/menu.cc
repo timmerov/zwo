@@ -258,6 +258,7 @@ public:
             return 0;
         }
         input_.erase(0, pos + 1);
+        ch = std::tolower(ch);
         return ch;
     }
 
@@ -743,6 +744,7 @@ public:
         bool new_find_stars = settings_->find_stars_;
         auto star_command = StarCommand::kNone;
         int star_param = 0;
+        std::string star_file_name;
 
         /** simple toggle. **/
         bool set = toggleOnOff(new_find_stars);
@@ -781,6 +783,20 @@ public:
                 star_command = StarCommand::kEnd;
                 break;
 
+            case 's': {
+                std::stringstream ss;
+                ss <<input_;
+                std::string filename;
+                ss >> filename;
+                if (filename.size() > 0) {
+                    LOG("MenuThread star command: save to \""<<filename<<"\"");
+                    star_command = StarCommand::kSave;
+                    star_file_name = std::move(filename);
+                } else {
+                    LOG("MensuThread save star list command missing filename.");
+                }
+            } break;
+
             case 'l':
                 LOG("MenuThread star command: show lists");
                 star_command = StarCommand::kList;
@@ -797,6 +813,7 @@ public:
             settings_->find_stars_ = new_find_stars;
             settings_->star_command_ = star_command;
             settings_->star_param_ = star_param;
+            settings_->star_file_name_ = std::move(star_file_name);
         }
     }
 

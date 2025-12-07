@@ -325,8 +325,41 @@ void WindowThread::saveStars(
     fs<<"# Right ascension: "<<ra<<std::endl;
     fs<<"# Declination: "<<dec<<std::endl;
     fs<<std::endl;
-    for (auto&& pos : star_.positions_) {
-        fs<<pos.x_<<" "<<pos.y_<<" "<<pos.brightness_<<std::endl;
+    for (auto&& star : star_.positions_) {
+        fs<<star.x_<<" "<<star.y_<<" "<<star.brightness_<<std::endl;
+    }
+}
+
+/** save positions of the lists of stars we found. **/
+void WindowThread::saveStarLists() noexcept {
+    int nlists = star_.lists_.size();
+    if (nlists == 0) {
+        return;
+    }
+    if (star_file_name_.size() == 0) {
+        return;
+    }
+
+    /** get the ra and dec from the shared buffer. **/
+    auto ra = settings_->right_ascension_.toString();
+    auto dec = settings_->declination_.toString();
+
+    LOG("Writing found star information to file: "<<star_file_name_);
+    auto pathname = save_path_ + star_file_name_;
+    std::ofstream fs(pathname);
+    fs<<"# Number star lists: "<<nlists<<std::endl;
+    fs<<"# x coordinate on screen: left=0 right="<<img_->width_<<std::endl;
+    fs<<"# y coordinate on screen: top=0 bottom="<<img_->height_<<std::endl;
+    fs<<"# relative brightness: black=0 white=65535"<<std::endl;
+    fs<<"# Right ascension: "<<ra<<std::endl;
+    fs<<"# Declination: "<<dec<<std::endl;
+    for (int i = 0; i < nlists; ++i) {
+        fs<<std::endl;
+        fs<<"# list["<<i<<"]"<<std::endl;
+        auto& list = star_.lists_[i];
+        for (auto&& star : list) {
+            fs<<star.x_<<" "<<star.y_<<" "<<star.brightness_<<std::endl;
+        }
     }
 }
 

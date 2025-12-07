@@ -578,6 +578,10 @@ void WindowThread::handleStarCommand() noexcept {
     case StarCommand::kList:
         showStarLists();
         break;
+
+    case StarCommand::kSave:
+        saveStarLists();
+        break;
     }
     star_command_ = StarCommand::kNone;
     star_param_ = 0;
@@ -931,6 +935,5 @@ void WindowThread::calculateCenter() noexcept {
     LOG("WindowThread calculated center is "<<center_x<<","<<center_y<<" angle: "<<angle<<"\""<<" error: "<<error<<" px");
     LOG("WindowThread from center of display. down and right are positive. display is: "<<aoi_.width<<","<<aoi_.height);
 }
-
 
 } // WindowThread

@@ -97,7 +97,8 @@ gamma: 0.4
 
 
 to do list:
-
+make a star catalog.
+save star lists.
 
 random ideas:
 
