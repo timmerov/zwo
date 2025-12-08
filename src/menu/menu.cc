@@ -297,6 +297,7 @@ public:
             LOG("  zd [x]       : delete star list x or all star lists.");
             LOG("  ze           : end star list.");
             LOG("  zl           : show star lists.");
+            LOG("  zs file      : save star lists.");
             LOG("  ?            : show help");
         }
     }
