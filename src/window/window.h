@@ -113,14 +113,16 @@ public:
     void drawCircle(
         double center_x,
         double center_y,
-        double r
+        double r,
+        int color = 0
     ) noexcept;
 
     /** draw a circle given center and radius. **/
     void drawCircle(
         int cx,
         int cy,
-        int radius
+        int radius,
+        int color = 0
     ) noexcept;
 
     /** draw 4 or 8 dots. **/
@@ -128,13 +130,15 @@ public:
         int cx,
         int cy,
         int x,
-        int y
+        int y,
+        int color = 0
     ) noexcept;
 
     /** draw a red blended dot at the location. **/
     void drawDot(
         int x,
-        int y
+        int y,
+        int color = 0
     ) noexcept;
 
     /** get the size of the default display. **/

@@ -348,7 +348,7 @@ void WindowThread::showStars() noexcept {
     for (auto &&star : star_.positions_) {
         int x = std::round(star.x_);
         int y = std::round(star.y_);
-        drawCircle(x, y, star.r_);
+        drawCircle(x, y, star.r_, star.found_);
     }
 }
 
@@ -737,6 +737,7 @@ void WindowThread::addStarsToList() noexcept {
                 if (rel <= reliability) {
                     ++star.found_;
                 }
+                candidate.found_ = 1;
                 found = true;
                 break;
             }
@@ -973,11 +974,14 @@ void WindowThread::generateQuads() noexcept {
 
     LOG("Saving star quads to file: "<<filename);
     fs<<"# Stars:"<<std::endl;
+    fs<<"# idx ra dec # x y bright"<<std::endl;
     for (int i = 0; i < nstars; ++i) {
-        fs<<i<<" "<<ra<<" "<<dec<<std::endl;
+        auto &star = list[i];
+        fs<<i<<" "<<ra<<" "<<dec<<" # "<<star.x_<<" "<<star.y_<<" "<<star.brightness_<<std::endl;
     }
     fs<<std::endl;
     fs<<"# Quads:"<<std::endl;
+    fs<<"# star0 star1 star2 star3 dist0 dist1 dist2 dist3 dist4"<<std::endl;
     for (int s0 = 0; s0 < nstars; ++s0) {
         for (int s1 = s0 + 1; s1 < nstars; ++s1) {
             for (int s2 = s1 + 1; s2 < nstars; ++s2) {

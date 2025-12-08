@@ -641,7 +641,8 @@ void WindowThread::showCollimationCircles() noexcept {
 void WindowThread::drawCircle(
     double center_x,
     double center_y,
-    double r
+    double r,
+    int color
 ) noexcept {
     int wd = img_->width_;
     int ht = img_->height_;
@@ -658,20 +659,21 @@ void WindowThread::drawCircle(
     cx += std::round(dx);
     cy += std::round(dy);
 
-    drawCircle(cx, cy, radius);
+    drawCircle(cx, cy, radius, color);
 }
 
 /** draw a circle given center and radius. **/
 void WindowThread::drawCircle(
     int cx,
     int cy,
-    int radius
+    int radius,
+    int color
 ) noexcept {
     int x = 0;
     int y = radius;
     int r42 = 4 * radius * radius;
     while (x <= y) {
-        draw8Dots(cx, cy, x, y);
+        draw8Dots(cx, cy, x, y, color);
         /**
         the next point is x+1,y or x+1,y-1.
         the midpoint of those is x+1,y-0.5.
@@ -695,20 +697,21 @@ void WindowThread::draw8Dots(
     int cx,
     int cy,
     int x,
-    int y
+    int y,
+    int color
 ) noexcept {
-    drawDot(cx + x, cy - y);
-    drawDot(cx + x, cy + y);
+    drawDot(cx + x, cy - y, color);
+    drawDot(cx + x, cy + y, color);
     if (x != 0) {
-        drawDot(cx - x, cy - y);
-        drawDot(cx - x, cy + y);
+        drawDot(cx - x, cy - y, color);
+        drawDot(cx - x, cy + y, color);
     }
     if (x != y) {
-        drawDot(cx + y, cy + x);
-        drawDot(cx - y, cy + x);
+        drawDot(cx + y, cy + x, color);
+        drawDot(cx - y, cy + x, color);
         if (x != 0) {
-            drawDot(cx + y, cy - x);
-            drawDot(cx - y, cy - x);
+            drawDot(cx + y, cy - x, color);
+            drawDot(cx - y, cy - x, color);
         }
     }
 }
@@ -716,7 +719,8 @@ void WindowThread::draw8Dots(
 /** draw a red blended dot at the location. **/
 void WindowThread::drawDot(
     int x,
-    int y
+    int y,
+    int color
 ) noexcept {
     int wd = img_->width_;
     int ht = img_->height_;
@@ -727,7 +731,11 @@ void WindowThread::drawDot(
         return;
     }
     auto ptr = (agm::uint16 *) rgb16_.data;
-    ptr += 3 * (wd * y + x) + 2;
+    if (color == 0) {
+        /** red **/
+        ptr += 2;
+    } /** blue **/
+    ptr += 3 * (wd * y + x);
     int p = ptr[0];
     p = (p + 0xFFFF) / 2;
     ptr[0] = p;
