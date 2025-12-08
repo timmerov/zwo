@@ -38,6 +38,10 @@ int main(
     auto image_double_buffer = ImageDoubleBuffer::create();
     SettingsBuffer settings;
 
+    /** set some settings now. **/
+    settings.right_ascension_.angle_ = -1.0;
+    settings.declination_.angle_ = -1.0;
+
     /** store the containers. **/
     std::vector<agm::Container *> containers;
     containers.push_back(image_double_buffer);
