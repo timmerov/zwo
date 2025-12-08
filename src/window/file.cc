@@ -315,9 +315,14 @@ void WindowThread::saveStars(
 
     auto prefix = filename.substr(0, pos);
     auto textname = prefix + ".txt";
-    LOG("Writing found star information to file: "<<textname);
     auto pathname = save_path_ + textname;
     std::ofstream fs(pathname);
+    if (fs.is_open() == false) {
+        LOG("Failed to open star information file: "<<pathname);
+        return;
+    }
+
+    LOG("Writing found star information to file: "<<textname);
     fs<<"# Found "<<nstars<<" stars:"<<std::endl;
     fs<<"# x coordinate on screen: left=0 right="<<img_->width_<<std::endl;
     fs<<"# y coordinate on screen: top=0 bottom="<<img_->height_<<std::endl;
@@ -344,9 +349,14 @@ void WindowThread::saveStarLists() noexcept {
     auto ra = settings_->right_ascension_.toString();
     auto dec = settings_->declination_.toString();
 
-    LOG("Writing found star information to file: "<<star_file_name_);
     auto pathname = save_path_ + star_file_name_;
     std::ofstream fs(pathname);
+    if (fs.is_open() == false) {
+        LOG("Failed to open star list file: "<<pathname);
+        return;
+    }
+
+    LOG("Writing found star information to file: "<<star_file_name_);
     fs<<"# Number star lists: "<<nlists<<std::endl;
     fs<<"# x coordinate on screen: left=0 right="<<img_->width_<<std::endl;
     fs<<"# y coordinate on screen: top=0 bottom="<<img_->height_<<std::endl;

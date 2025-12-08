@@ -769,6 +769,21 @@ public:
                 star_command = StarCommand::kEnd;
                 break;
 
+            case 'l':
+                LOG("MenuThread star command: show lists");
+                star_command = StarCommand::kList;
+                break;
+
+            case 'q': {
+                std::stringstream ss;
+                ss <<input_;
+                std::string filename;
+                ss >> filename;
+                LOG("MenuThread star command: generate quads");
+                star_command = StarCommand::kQuads;
+                star_file_name = std::move(filename);
+            } break;
+
             case 's': {
                 std::stringstream ss;
                 ss <<input_;
@@ -782,11 +797,6 @@ public:
                     LOG("MensuThread save star list command missing filename.");
                 }
             } break;
-
-            case 'l':
-                LOG("MenuThread star command: show lists");
-                star_command = StarCommand::kList;
-                break;
 
             default:
                 LOG("MenuThread invalid star command: '"<<(char)ch<<"'");

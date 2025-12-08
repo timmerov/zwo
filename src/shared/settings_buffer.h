@@ -58,6 +58,7 @@ enum class StarCommand {
     kDeleteAll,
     kEnd,
     kList,
+    kQuads,
     kSave
 };
 

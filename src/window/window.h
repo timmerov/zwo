@@ -254,6 +254,10 @@ public:
 
     void calculateCenter() noexcept;
 
+    void generateQuads() noexcept;
+
+    double calculateDistance2(int a, int b) noexcept;
+
     /** ^^^^^ ----- findstars.cc ----- ^^^^^ **/
 };
 

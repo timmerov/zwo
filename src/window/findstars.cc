@@ -8,6 +8,8 @@ find the stars in the image.
 window thread.
 **/
 
+#include <fstream>
+
 #include <opencv2/opencv.hpp>
 
 #include "levenberg_marquardt.h"
@@ -579,6 +581,10 @@ void WindowThread::handleStarCommand() noexcept {
         showStarLists();
         break;
 
+    case StarCommand::kQuads:
+        generateQuads();
+        break;
+
     case StarCommand::kSave:
         saveStarLists();
         break;
@@ -934,6 +940,83 @@ void WindowThread::calculateCenter() noexcept {
     center_y -= double(img_->height_) / 2.0;
     LOG("WindowThread calculated center is "<<center_x<<","<<center_y<<" angle: "<<angle<<"\""<<" error: "<<error<<" px");
     LOG("WindowThread from center of display. down and right are positive. display is: "<<aoi_.width<<","<<aoi_.height);
+}
+
+void WindowThread::generateQuads() noexcept {
+    int nlists = star_.lists_.size();
+    if (nlists == 0) {
+        LOG("Need a star list to generate quads.");
+        return;
+    }
+
+    auto &list = star_.lists_[0];
+    int nstars = list.size();
+    if (nstars < 4) {
+        LOG("Need at least 4 stars to generate quads.");
+        return;
+    }
+
+    /** get the ra and dec from the shared buffer. **/
+    auto ra = settings_->right_ascension_.angle_;
+    auto dec = settings_->declination_.angle_;
+
+    std::string filename = star_file_name_;
+    if (filename.size() == 0) {
+        filename = "starquads.txt";
+    }
+    std::string pathname = save_path_ + filename;
+    std::ofstream fs(pathname);
+    if (fs.is_open() == false) {
+        LOG("Failed to open star quads file: "<<pathname);
+        return;
+    }
+
+    LOG("Saving star quads to file: "<<filename);
+    fs<<"# Stars:"<<std::endl;
+    for (int i = 0; i < nstars; ++i) {
+        fs<<i<<" "<<ra<<" "<<dec<<std::endl;
+    }
+    fs<<std::endl;
+    fs<<"# Quads:"<<std::endl;
+    for (int s0 = 0; s0 < nstars; ++s0) {
+        for (int s1 = s0 + 1; s1 < nstars; ++s1) {
+            for (int s2 = s1 + 1; s2 < nstars; ++s2) {
+                for (int s3 = s2 + 1; s3 < nstars; ++s3) {
+                    double d01 = calculateDistance2(s0, s1);
+                    double d02 = calculateDistance2(s0, s2);
+                    double d03 = calculateDistance2(s0, s3);
+                    double d12 = calculateDistance2(s1, s2);
+                    double d13 = calculateDistance2(s1, s3);
+                    double d23 = calculateDistance2(s2, s3);
+                    std::vector<double> distances = {d01, d02, d03, d12, d13, d23};
+                    std::sort(distances.begin(), distances.end());
+                    double dl = distances.back();
+                    distances.pop_back();
+                    for (int i = 0; i < 5; ++i) {
+                        distances[i] /= dl;
+                    }
+                    fs<<s0<<" "<<s1<<" "<<s2<<" "<<s3;
+                    for (int i = 0; i < 5; ++i) {
+                        fs<<" "<<distances[i];
+                    }
+                    fs<<std::endl;
+                }
+            }
+        }
+    }
+}
+
+double WindowThread::calculateDistance2(
+    int a,
+    int b
+) noexcept {
+    auto &list = star_.lists_[0];
+    auto &star_a = list[a];
+    auto &star_b = list[b];
+    double dx = star_a.x_ - star_b.x_;
+    double dy = star_a.y_ - star_b.y_;
+    double dist = dx * dx + dy * dy;
+    return dist;
 }
 
 } // WindowThread
