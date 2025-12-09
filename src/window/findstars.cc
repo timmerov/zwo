@@ -350,6 +350,17 @@ void WindowThread::showStars() noexcept {
         int y = std::round(star.y_);
         drawCircle(x, y, star.r_, star.found_);
     }
+
+    int nlists = star_.lists_.size();
+    if (nlists == 0) {
+        return;
+    }
+    auto &list = star_.lists_[0];
+    for (auto &&star : list) {
+        int x = std::round(star.x_);
+        int y = std::round(star.y_);
+        drawCircle(x, y, star.r_, 1);
+    }
 }
 
 void WindowThread::findMedianGrays() noexcept {

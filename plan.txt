@@ -4,13 +4,32 @@ capture black frames 10 or so
 remove cap
 g 0.5 or so
 d 1 - subtract median
-use up/down to find some stars
-focus
-mt 1 - enable tracking
 z 1 - find stars
+use up/down to find some stars
+mt 1 - enable tracking
+focus
+
+better align. requires patience.
 zb - begin list
 10 frames or so
 ze - end list
+mt 0 - disable tracking.
+at this point the reliable stars should be blue circles.
+and the found stars should be red circles.
+wait until stars move out of the blue circles.
+adjust mount.
+if stars are going left - move mount down.
+if stars are going right - move mount up.
+if stars are going up - move mount left.
+if stars are going down - move mount right.
+zd
+repeat until stars are going around the center of the screen.
+there are 3 or so magnitude <11 with 9 minutes of celestial center.
+540 arc seconds.
+so might be able to get them in the field of view.
+
+
+
 mae 36000 - move east 10 degrees
 zb - begin list
 10 frames or so
