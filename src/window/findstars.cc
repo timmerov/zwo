@@ -895,6 +895,7 @@ void WindowThread::calculateCenter() noexcept {
             std::swap(list1[i], list1[min_idx]);
         }
     }
+    showStarLists();
 
     /** do the math. **/
     CalculateCenter cc;

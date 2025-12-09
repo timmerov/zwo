@@ -1,0 +1,69 @@
+rough align.
+e 2s ? - exposure
+capture black frames 10 or so
+remove cap
+g 0.5 or so
+d 1 - subtract median
+use up/down to find some stars
+focus
+mt 1 - enable tracking
+z 1 - find stars
+zb - begin list
+10 frames or so
+ze - end list
+mae 36000 - move east 10 degrees
+zb - begin list
+10 frames or so
+ze - end list
+zl - show star lists. should be 2 similar lists
+zc - center of mount axis
+copy numbers to safe place. let's say they are:
+calculateCenter WindowThread calculated center is 443.622,479.047 angle: -7844.65" error: 0.898061 px
+zd 0 - delete list 0
+mt 0 - disable tracking
+wait 2-4 minutes
+mt 1 - enable tracking
+zb - begin list
+10 frames or so
+ze - end list
+zl - show star lists. should be 2.
+zc - center of celestial sphere
+copy numbers to safe place. let's say they are:
+calculateCenter WindowThread calculated center is 371.626,4334.52 angle: -3666.69" error: 1.15879 px
+adjust the mount left/right.
+in this case the mount center is +443 pixels and the celestial center is +373 pixels.
+so we need move the mount to the left by 443-373=70 pixels.
+zl - show star list
+zb - begin list
+10 frames
+ze - end list
+zl - show star lists
+the star lists should differ by about 70 pixels in x.
+if not then delete that list zd 1, try again.
+adjust the mount up/down
+in this case we need to move down 4434-479=3955 pixels.
+which is a lot.
+the screen is 1000 pixels tall.
+maybe estimate 1/4 turn is x pixels.
+find more stars.
+repeat the adjustments until perfect.
+it's acceptable to slew east or west to find suitable stars.
+
+when satisfied or frustrated.
+mae 252000 - 70 degrees
+t poles#.tif - auto save images.
+save 10 frames
+t - pause auto save
+maw 36000 - 10 degrees
+repeat until at +80 degrees or the mount won't move.
+
+capture stars on the right.
+mz - zero poisition
+mas 1000 - slew until right side stars are now on the left.
+maw xxx - until scope is more/less pointed up with no left or right.
+repeat captures.
+slew 10 degrees east until 90 degrees right
+capture stars on the left.
+mz - zero position
+man xxx - same amount you slewed to move stars above
+repeat captures and slews until 90 degrees left
