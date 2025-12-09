@@ -998,7 +998,7 @@ void WindowThread::matchStarLists() noexcept {
     showStarLists();
 
     /** remove stars that have moved out of view. **/
-    for (int i = nstars0 - 1; i >= 0; --i) {
+    for (int i = 0; i < nstars0; ++i) {
         auto &star = list0[i];
         if (star.x_ <= 0.0
         ||  star.x_ >= double(img_->width_ - 1)
@@ -1007,6 +1007,7 @@ void WindowThread::matchStarLists() noexcept {
             LOG("removing star["<<i<<"] from list[0]");
             list0.erase(list0.begin() + i);
             --nstars0;
+            --i;
         }
     }
 
