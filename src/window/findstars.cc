@@ -351,15 +351,12 @@ void WindowThread::showStars() noexcept {
         drawCircle(x, y, star.r_, star.found_);
     }
 
-    int nlists = star_.lists_.size();
-    if (nlists == 0) {
-        return;
-    }
-    auto &list = star_.lists_[0];
-    for (auto &&star : list) {
-        int x = std::round(star.x_);
-        int y = std::round(star.y_);
-        drawCircle(x, y, star.r_, 1);
+    for (auto &&list : star_.lists_) {
+        for (auto &&star : list) {
+            int x = std::round(star.x_);
+            int y = std::round(star.y_);
+            drawCircle(x, y, star.r_, 1);
+        }
     }
 }
 
@@ -877,35 +874,8 @@ void WindowThread::calculateCenter() noexcept {
         return;
     }
 
-    /** must be same size. **/
-    auto& list0 = star_.lists_[0];
-    auto& list1 = star_.lists_[1];
-    int nstars0 = list0.size();
-    int nstars1 = list1.size();
-    if (nstars0 != nstars1) {
-        LOG("WindowThread star list[0]:"<<nstars0<<" and list[1]:"<<nstars1<<" must be the same size.");
-        return;
-    }
-
     /** pair up the stars in the lists. **/
-    for (int i = 0; i < nstars0; ++i) {
-        auto &star0 = list0[i];
-        double min_dist = 1e10;
-        int min_idx = -1;
-        for (int k = i; k < nstars1; ++k) {
-            auto &star1 = list1[k];
-            double dx = star0.x_ - star1.x_;
-            double dy = star0.y_ - star1.y_;
-            double dist = dx * dx + dy * dy;
-            if (dist < min_dist) {
-                min_dist = dist;
-                min_idx = k;
-            }
-        }
-        if (min_idx != i) {
-            std::swap(list1[i], list1[min_idx]);
-        }
-    }
+    matchStarLists();
     showStarLists();
 
     /** do the math. **/
@@ -953,6 +923,161 @@ void WindowThread::calculateCenter() noexcept {
     center_y -= double(img_->height_) / 2.0;
     LOG("WindowThread calculated center is "<<center_x<<","<<center_y<<" angle: "<<angle<<"\""<<" error: "<<error<<" px");
     LOG("WindowThread from center of display. down and right are positive. display is: "<<aoi_.width<<","<<aoi_.height);
+}
+
+/**
+match the stars in list[0] to the stars in list[1].
+find the median x,y offset to the closest star.
+build new lists with the stars offset by half.
+sort one of the lists from center out.
+match this list 1-to-1 to the other list.
+drop stars that are close to the edge and obviously not paired.
+**/
+void WindowThread::matchStarLists() noexcept {
+    auto& list0 = star_.lists_[0];
+    auto& list1 = star_.lists_[1];
+    int nstars0 = list0.size();
+    int nstars1 = list1.size();
+
+    /** find the median distance between closest pairs. **/
+    std::vector<double> dxs;
+    std::vector<double> dys;
+    dxs.resize(nstars0);
+    dys.resize(nstars0);
+    for (int i = 0; i < nstars0; ++i) {
+        auto &star0 = list0[i];
+        double min_dist = 1e10;
+        double min_dx = 1e10;
+        double min_dy = 1e10;
+        for (int k = 0; k < nstars1; ++k) {
+            auto &star1 = list1[k];
+            double dx = star0.x_ - star1.x_;
+            double dy = star0.y_ - star1.y_;
+            double dist = dx * dx + dy * dy;
+            if (dist < min_dist) {
+                min_dist = dist;
+                min_dx = dx;
+                min_dy = dy;
+            }
+        }
+        dxs[i] = min_dx;
+        dys[i] = min_dy;
+    }
+    std::sort(dxs.begin(), dxs.end());
+    std::sort(dys.begin(), dys.end());
+    double dx = dxs[nstars0/2];
+    double dy = dys[nstars0/2];
+    if (nstars0 & 1) {
+        dx = (dx + dxs[(nstars0+1)/2]) / 2.0;
+        dy = (dy + dys[(nstars0+1)/2]) / 2.0;
+    }
+    dx /= 2.0;
+    dy /= 2.0;
+    LOG("median offset: "<<dx<<","<<dy);
+    double median_limit = dx * dx + dy * dy;
+    LOG("median_limit="<<median_limit);
+
+    LOG("start:");
+    showStarLists();
+
+    /** offset the stars. **/
+    for (auto &&star : list0) {
+        star.x_ -= dx;
+        star.y_ -= dy;
+    }
+    for (auto &&star : list1) {
+        star.x_ += dx;
+        star.y_ += dy;
+    }
+
+    LOG("offset:");
+    showStarLists();
+
+    /** remove stars that have moved out of view. **/
+    for (int i = nstars0 - 1; i >= 0; --i) {
+        auto &star = list0[i];
+        if (star.x_ <= 0.0
+        ||  star.x_ >= double(img_->width_ - 1)
+        ||  star.y_ <= 0.0
+        ||  star.y_ >= double(img_->height_ - 1)) {
+            LOG("removing star["<<i<<"] from list[0]");
+            list0.erase(list0.begin() + i);
+            --nstars0;
+        }
+    }
+
+    LOG("trimmed:");
+    showStarLists();
+
+    /** sort list0 by distance from center. **/
+    auto img = img_;
+    auto closestToCenter = [img](
+        const StarPosition &a, const StarPosition &b
+    ) noexcept {
+        double midx = double(img->width_) / 2.0;
+        double midy = double(img->height_) / 2.0;
+        double dxa = a.x_ - midx;
+        double dya = a.y_ - midy;
+        double dxb = b.x_ - midx;
+        double dyb = b.y_ - midy;
+        double dista = dxa * dxa + dya * dya;
+        double distb = dxb * dxb + dyb * dyb;
+        return dista < distb;
+    };
+    std::sort(list0.begin(), list0.end(), closestToCenter);
+
+    LOG("sorted by distance to center:");
+    showStarLists();
+
+    /** pair up the stars in the lists. **/
+    for (int i = 0; i < nstars0; ++i) {
+        auto &star0 = list0[i];
+        double min_dist = 1e10;
+        int min_idx = -1;
+        for (int k = i; k < nstars1; ++k) {
+            auto &star1 = list1[k];
+            double dx = star0.x_ - star1.x_;
+            double dy = star0.y_ - star1.y_;
+            double dist = dx * dx + dy * dy;
+            if (dist < median_limit
+            &&  dist < min_dist) {
+                min_dist = dist;
+                min_idx = k;
+            }
+        }
+        if (min_idx >= 0) {
+            LOG("pairing up list0["<<i<<"] with list1["<<min_idx<<"] dist="<<min_dist<<" "<<sqrt(min_dist));
+            if (min_idx != i) {
+                std::swap(list1[i], list1[min_idx]);
+            }
+        } else {
+            LOG("unable to pair list0["<<i<<"] deleting it.");
+            list0.erase(list0.begin() + i);
+            --i;
+            --nstars0;
+        }
+    }
+
+    LOG("paired up.");
+    showStarLists();
+
+    if (nstars0 != nstars1) {
+        nstars1 = nstars0;
+        list1.resize(nstars1);
+
+        LOG("removed unpaired.");
+        showStarLists();
+    }
+
+    /** de-offset the stars. **/
+    for (auto &&star : list0) {
+        star.x_ += dx;
+        star.y_ += dy;
+    }
+    for (auto &&star : list1) {
+        star.x_ -= dx;
+        star.y_ -= dy;
+    }
 }
 
 void WindowThread::generateQuads() noexcept {
