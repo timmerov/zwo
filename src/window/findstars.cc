@@ -939,7 +939,7 @@ void WindowThread::matchStarLists() noexcept {
     int nstars0 = list0.size();
     int nstars1 = list1.size();
 
-    /** find the median distance between closest pairs. **/
+    /** find all of the dx,dy distances between closest pairs. **/
     std::vector<double> dxs;
     std::vector<double> dys;
     dxs.resize(nstars0);
@@ -963,11 +963,15 @@ void WindowThread::matchStarLists() noexcept {
         dxs[i] = min_dx;
         dys[i] = min_dy;
     }
+
+    /** find the median dx,dy offsets. **/
     std::sort(dxs.begin(), dxs.end());
     std::sort(dys.begin(), dys.end());
+    /** odd number of stars. **/
     double dx = dxs[nstars0/2];
     double dy = dys[nstars0/2];
-    if (nstars0 & 1) {
+    if ((nstars0 & 1) == 0) {
+        /** average medians for even number of stars. **/
         dx = (dx + dxs[(nstars0+1)/2]) / 2.0;
         dy = (dy + dys[(nstars0+1)/2]) / 2.0;
     }
