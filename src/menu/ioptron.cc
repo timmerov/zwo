@@ -160,7 +160,7 @@ double centiarcsecondsToDegrees(
 double milliSecondsOfArcToDegrees(
     const std::string& s
 ) noexcept {
-    /** 1000 milli * 60 arcseconds * 60 arcminutes = 3,600,000 **/
+    /** 1000 milli * 60 seconds * 60 minutes = 3,600,000 **/
     int milliSecondsOfArc = std::stoi(s);
     double hours = double(milliSecondsOfArc) / 3600000.0;
     /** 360 degrees = 24 hours **/
@@ -607,8 +607,8 @@ public:
 
         /** convert declination in degrees to centi-arcseconds. **/
         /** convert right ascension in hours to milli-seconds-of-arc. **/
-        /** 60 arcseconds * 60 arcminutes = 360 */
-        /** times 100 for centi or 1000 for milli. **/
+        /** 100 centi * 60 arcseconds * 60 arcminutes = 360000 */
+        /** 1000 milli * 60 seconds * 60 minutes = 3600000 */
         int centiarcseconds = std::round(dec_.angle_ * 360000.0);
         int milliSecondsOfArc = std::round(ra_hours * 3600000.0);
 
@@ -786,13 +786,12 @@ void ArcSeconds::fromAngleHours() noexcept {
 std::string ArcSeconds::toString() noexcept {
     static constexpr char kDegrees[] = "\xC2\xB0";
     std::stringstream ss;
-    ss<<angle_<<kDegrees<<" ";
+    ss<<std::fixed<<std::setprecision(4)<<angle_<<kDegrees<<" ";
     if (using_hrs_) {
-        ss<<hrs_<<"h";
+        ss<<hrs_<<"h"<<" "<<mins_<<"m "<<std::setprecision(2)<<secs_<<"s";
     } else {
-        ss<<degs_<<kDegrees;
+        ss<<degs_<<kDegrees<<" "<<mins_<<"' "<<std::setprecision(2)<<secs_<<"\"";
     }
-    ss<<" "<<mins_<<"' "<<secs_<<"\"";
     if (east_west_) {
         ss<<" "<<east_west_;
     }
