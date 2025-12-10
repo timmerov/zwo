@@ -38,12 +38,20 @@ public:
     void fromRightAscension(std::string &s) noexcept;
 
     /** calculate degs mins secs from angle. **/
-    void fromAngle() noexcept;
+    void fromAngleDegrees() noexcept;
 
-    /** angle.xxx +/-HH MM' SS.sss" **/
+    /** calculate hours mins secs from angle. **/
+    void fromAngleHours() noexcept;
+
+    /**
+    angle.xxx +/-DDd MM' SS.sss"
+    angle.xxx HHh MM' SS.sss"
+    **/
     std::string toString() noexcept;
 
     double angle_ = 0.0;
+    bool using_hrs_ = false;
+    int hrs_ = 0;
     int degs_ = 0;
     int mins_ = 0;
     double secs_ = 0.0;

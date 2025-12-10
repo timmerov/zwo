@@ -596,8 +596,8 @@ public:
         }
 
         /** convert angles to hrs mins secs. **/
-        dec_.fromAngle();
-        ra_.fromAngle();
+        dec_.fromAngleDegrees();
+        ra_.fromAngleHours();
 
         /** share the new ra and dec. **/
         shareRightAscensionDeclination();
@@ -712,19 +712,23 @@ void ArcSeconds::fromDeclination(
     std::string &s
 ) noexcept {
     angle_ = centiarcsecondsToDegrees(s);
-    fromAngle();
+    fromAngleDegrees();
 }
 
 void ArcSeconds::fromRightAscension(
     std::string &s
 ) noexcept {
     angle_ = milliSecondsOfArcToDegrees(s);
-    fromAngle();
+    fromAngleHours();
 }
 
-void ArcSeconds::fromAngle() noexcept {
+void ArcSeconds::fromAngleDegrees() noexcept {
     /** positive values. **/
     double angle = std::abs(angle_);
+
+    /** we're not using hours. **/
+    using_hrs_ = false;
+    hrs_ = 0;
 
     /** whole number of degrees. **/
     degs_ = std::floor(angle);
@@ -746,9 +750,49 @@ void ArcSeconds::fromAngle() noexcept {
     }
 }
 
+void ArcSeconds::fromAngleHours() noexcept {
+    /** positive values. **/
+    double angle = std::abs(angle_);
+
+    /** 15 degrees per hour. **/
+    angle /= 15.0;
+
+    /** we're using hours. **/
+    using_hrs_ = true;
+
+    /** whole number of hours. **/
+    hrs_ = std::floor(angle);
+
+    /** we're not using degrees. **/
+    degs_ = 0;
+
+    /** convert remainder to minutes. **/
+    angle -= double(degs_);
+    angle *= 60.0;
+
+    /** whole number of minutes. **/
+    mins_ = std::floor(angle);
+
+    /** convert remainder to seconds. **/
+    angle -= double(mins_);
+    secs_ = angle * 60.0;
+
+    /** restore sign. **/
+    if (angle_ < 0.0) {
+        degs_ = - degs_;
+    }
+}
+
 std::string ArcSeconds::toString() noexcept {
+    static constexpr char kDegrees[] = "\xC2\xB0";
     std::stringstream ss;
-    ss<<angle_<<" "<<degs_<<" "<<mins_<<"' "<<secs_<<"\"";
+    ss<<angle_<<kDegrees<<" ";
+    if (using_hrs_) {
+        ss<<hrs_<<"h";
+    } else {
+        ss<<degs_<<kDegrees;
+    }
+    ss<<" "<<mins_<<"' "<<secs_<<"\"";
     if (east_west_) {
         ss<<" "<<east_west_;
     }
