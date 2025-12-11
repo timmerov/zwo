@@ -29,6 +29,9 @@ public:
     /** dump a bunch of mount status. **/
     void showStatus() noexcept;
 
+    /** go to the specified position. **/
+    void goToPosition(double ra, double dec) noexcept;
+
     /** slew to the currently set home/zero position. **/
     void slewToHomePosition() noexcept;
 

@@ -264,36 +264,55 @@ public:
         ss<<input_;
 
         std::string valid_units("d*'\"hms");
+        bool is_first = true;
         double total_angle = 0.0;
+        int erase_count = 0;
 
         /** combine angle with different units. **/
         for(;;) {
             /** pop an angle. **/
-            int undo_angle_pos = ss.tellg();
             double angle = 0.0;
             ss>>angle;
+            //LOG("angle="<<angle);
             if (ss.good() == false) {
                 break;
             }
 
             /** pop optional units. **/
             int undo_units_pos = ss.tellg();
+            //LOG("undo_units_pos="<<undo_units_pos);
             char units = 'd';
             ss>>units;
+            //LOG("units="<<units);
+
+            /** check valid units. **/
+            auto found_pos = std::string::npos;
             if (ss.good()) {
-                LOG("good=true");
-                /** put the character back if it's not a valid unit. **/
-                auto found_pos = valid_units.find(units);
-                if (found_pos == std::string::npos) {
-                    if (total_angle != 0.0) {
-                        /** bad format. restore the angle. **/
-                        ss.seekg(undo_angle_pos);
-                        break;
-                    }
-                    /** default to degrees. **/
-                    ss.seekg(undo_units_pos);
-                    units = 'd';
+                found_pos = valid_units.find(units);
+                //LOG("found_pos="<<found_pos);
+            }
+            if (found_pos == std::string::npos) {
+                /** numbers after the first must have explicit units. **/
+                if (is_first == false) {
+                    /** bad format. do not consume the angle. **/
+                    //LOG("bad format. done.");
+                    break;
                 }
+                //LOG("seekg undo_units_pos="<<undo_units_pos);
+                /**
+                the first number defaults to degrees.
+                restore whatever it was that wasn't units.
+                **/
+                ss.seekg(undo_units_pos);
+                units = 'd';
+
+                /** we have consumed only the angle. **/
+                erase_count = undo_units_pos;
+                //LOG("erase_count=undo_units_pos="<<erase_count);
+            } else {
+                /** we have consumed the angle and the units. **/
+                erase_count = ss.tellg();
+                //LOG("erase_count=tellg="<<erase_count);
             }
 
             /** convert the angle to the units. **/
@@ -338,19 +357,24 @@ public:
 
             /** accumulate. **/
             total_angle += angle;
+            //LOG("total_angle="<<total_angle);
 
             /** stop when we hit arcseconds or seconds. **/
             if (units == '"' || units == 's') {
                 break;
             }
+
+            is_first = false;
+            //LOG("is_first=false");
         }
 
         /** erase the consumed characters from the input. **/
-        int pos = ss.tellg();
-        input_.erase(0, pos);
-        LOG("after input="<<input_);
+        input_.erase(0, erase_count);
 
-        LOG("total_angle="<<total_angle);
+        /** return nan if there was no parsable input. **/
+        if (is_first) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
 
         return total_angle;
     }
@@ -375,6 +399,7 @@ public:
             LOG("  l file       : load image file");
             LOG("  ma [nsew] x  : slew n,s,e,w by angle DD[d*] MM' SS.SS\" or HHh MMm SS.SSs");
             LOG("  mi           : show mount info");
+            LOG("  mg ra dec    : goto this position");
             LOG("  mh           : slew to home (zero) position");
             LOG("  mm [nsew] ms : slew n,s,e,w for milliseconds (time)");
             LOG("  mr#          : set slewing rate 1-9");
@@ -554,6 +579,10 @@ public:
             slewAngle();
             break;
 
+        case 'g':
+            slewToPosition();
+            break;
+
         case 'h':
             mount_->slewToHomePosition();
             break;
@@ -583,7 +612,7 @@ public:
         }
     }
 
-    void slewAngle() {
+    void slewAngle() noexcept {
         /** which direction. **/
         int dir = popCommandFromInput();
         dir = std::tolower(dir);
@@ -595,6 +624,10 @@ public:
 
         /** how far. **/
         double angle = popAngleFromInput();
+        if (std::isnan(angle)) {
+            LOG("MenuThread angle format is invalid.");
+            return;
+        }
         if (angle == 0.0) {
             LOG("MenuThread Slew angle is zero.");
             return;
@@ -608,7 +641,25 @@ public:
         is_tracking_ = true;
     }
 
-    void slewDuration() {
+    void slewToPosition() noexcept {
+        bool good = true;
+        double ra = popAngleFromInput();
+        double dec = popAngleFromInput();
+        if (std::isnan(ra)) {
+            LOG("MenuThread Invalid format for right ascension.");
+            good = false;
+        }
+        if (std::isnan(dec)) {
+            LOG("MenuThread Invalid format for declination.");
+            good = false;
+        }
+        if (good == false) {
+            return;
+        }
+        mount_->goToPosition(ra, dec);
+    }
+
+    void slewDuration() noexcept {
         std::stringstream ss;
         ss << input_;
         char dir = 0;

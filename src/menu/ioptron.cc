@@ -381,6 +381,31 @@ public:
         LOG("IOptron Time: "<<ss.str());
     }
 
+    void goToPosition(
+        double ra,
+        double dec
+    ) noexcept {
+        if (is_connected_ == false) {
+            LOG("Ioptron mount is not connected.");
+            return;
+        }
+
+        /** set, share, and go to ra and dec. **/
+        ra_.angle_ = ra;
+        dec_.angle_ = dec;
+        setRightAscensionDeclination();
+        shareRightAscensionDeclination();
+        goToRightAscensionDeclination();
+    }
+
+    void goToRightAscensionDeclination() noexcept {
+        /** go there. **/
+        LOG("Slewing to RA: "<<ra_.toString()<<" Dec: "<<dec_.toString());
+        port_.write(":MS#");
+        auto response = port_.read(1);
+        LOG("result: "<<response);
+    }
+
     /** get ra and dec from mount. **/
     void getRightAscensionDeclination() noexcept {
         port_.write(":GEC#");
@@ -573,12 +598,7 @@ public:
         /** set and share the new ra and dec. **/
         setRightAscensionDeclination();
         shareRightAscensionDeclination();
-
-        /** go there. **/
-        LOG("Slewing to RA: "<<ra_.toString()<<" Dec: "<<dec_.toString());
-        port_.write(":MS#");
-        auto response = port_.read(1);
-        LOG("result: "<<response);
+        goToRightAscensionDeclination();
     }
 
     void setRightAscensionDeclination() noexcept {
@@ -828,6 +848,14 @@ bool Ioptron::isConnected() noexcept {
 void Ioptron::showStatus() noexcept {
     auto impl = (IoptronImpl *) this;
     impl->showStatus();
+}
+
+void Ioptron::goToPosition(
+    double ra,
+    double dec
+) noexcept {
+    auto impl = (IoptronImpl *) this;
+    impl->goToPosition(ra, dec);
 }
 
 void Ioptron::slewToHomePosition() noexcept {
