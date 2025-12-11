@@ -282,7 +282,6 @@ public:
             LOG("  mm [nsew] ms : slew n,s,e,w for milliseconds (time)");
             LOG("  mr#          : set slewing rate 1-9");
             LOG("  mt [+-01yn]  : toggle tracking: "<<is_tracking_);
-            LOG("  mz           : set zero (home) position");
             LOG("  p path       : prefix for saved files: "<<settings_->save_path_);
             LOG("  q,esc        : quit");
             LOG("  r [+-01yn]   : toggle fps (frame Rate): "<<settings_->show_fps_);
@@ -480,10 +479,6 @@ public:
             LOG("MenuThread tracking: "<<is_tracking_);
             mount_->setTracking(is_tracking_);
         } break;
-
-        case 'z':
-            mount_->setZeroPosition();
-            break;
 
         default:
             LOG("Unknown command for mount.");

@@ -570,6 +570,18 @@ public:
             ra_.angle_ += degrees;
         }
 
+        /** set and share the new ra and dec. **/
+        setRightAscensionDeclination();
+        shareRightAscensionDeclination();
+
+        /** go there. **/
+        LOG("Slewing to RA: "<<ra_.toString()<<" Dec: "<<dec_.toString());
+        port_.write(":MS#");
+        auto response = port_.read(1);
+        LOG("result: "<<response);
+    }
+
+    void setRightAscensionDeclination() noexcept {
         /** normalize declination. **/
         while (dec_.angle_ >= +180.0) {
             dec_.angle_ -= 360.0;
@@ -599,9 +611,6 @@ public:
         dec_.fromAngleDegrees();
         ra_.fromAngleHours();
 
-        /** share the new ra and dec. **/
-        shareRightAscensionDeclination();
-
         /** convert ra angle to hours. **/
         double ra_hours = ra_.angle_ * 24.0 / 360.0;
 
@@ -629,12 +638,6 @@ public:
         ss2<<":Sr"<<std::noshowpos<<std::setfill('0')<<std::setw(8)<<milliSecondsOfArc<<"#";
         port_.write(ss2.str().c_str());
         response = port_.read(1);
-
-        /** go there. **/
-        LOG("Slewing to RA: "<<ra_.toString()<<" Dec: "<<dec_.toString());
-        port_.write(":MS#");
-        response = port_.read(1);
-        LOG("result: "<<response);
     }
 
     void setTracking(
@@ -830,11 +833,6 @@ void Ioptron::showStatus() noexcept {
 void Ioptron::slewToHomePosition() noexcept {
     auto impl = (IoptronImpl *) this;
     impl->slewToHomePosition();
-}
-
-void Ioptron::setZeroPosition() noexcept {
-    auto impl = (IoptronImpl *) this;
-    impl->setZeroPosition();
 }
 
 void Ioptron::setSlewingRate(
