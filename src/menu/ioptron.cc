@@ -767,7 +767,7 @@ void ArcSeconds::fromAngleHours() noexcept {
     degs_ = 0;
 
     /** convert remainder to minutes. **/
-    angle -= double(degs_);
+    angle -= double(hrs_);
     angle *= 60.0;
 
     /** whole number of minutes. **/

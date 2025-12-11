@@ -67,6 +67,7 @@ void WindowThread::autoSaveRawImage() noexcept {
         auto pos = raw_file_name_.find('#');
         if (pos != std::string::npos) {
             auto_save_name_ = std::move(raw_file_name_);
+            auto_save_counter_ = 0;
         }
         raw_file_name_.clear();
     }

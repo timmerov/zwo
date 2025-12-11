@@ -152,7 +152,7 @@ void WindowThread::findStarsInImage() noexcept {
 
         /** stop when it's below the threshold. **/
         if (max_val <= threshold) {
-            LOG("Remaining star field is below threshold.");
+            //LOG("Remaining star field is below threshold.");
             break;
         }
 
@@ -178,7 +178,7 @@ void WindowThread::findStarsInImage() noexcept {
             /** erase the blob. **/
             eraseBlob(max_x, max_y, square_radius);
 
-            LOG("Skipped small blob at "<<max_x<<","<<max_y);
+            //LOG("Skipped small blob at "<<max_x<<","<<max_y);
             continue;
         }
 
@@ -692,7 +692,7 @@ void WindowThread::showStarLists() noexcept {
 }
 
 void WindowThread::addStarsToList() noexcept {
-    LOG("adding stars to list.");
+    //LOG("adding stars to list.");
     int nlists = star_.lists_.size();
     if (nlists <= 0) {
         return;
@@ -704,7 +704,7 @@ void WindowThread::addStarsToList() noexcept {
     /** copy the current list to an empty master list. */
     int nlist = list.size();
     if (nlist == 0) {
-        LOG("copying stars to list.");
+        //LOG("copying stars to list.");
         list = star_.positions_;
         /** set the counts. **/
         for (auto &&star : list) {
@@ -716,7 +716,7 @@ void WindowThread::addStarsToList() noexcept {
 
     /** get the total counts from the first star. **/
     int reliability = list[0].found_ + list[0].missed_;
-    LOG("merging lists reliability="<<reliability);
+    //LOG("merging lists reliability="<<reliability);
 
     /**
     algorithm:
@@ -892,7 +892,6 @@ void WindowThread::calculateCenter() noexcept {
     **/
     int display_size = std::max(img_->width_, img_->height_);
     double limit = 10.0 * double(display_size);
-    //LOG("solution is insane: "<<max);
     double center_x = -2.0 * double(display_size);
     double center_y = 0.0;
     for (int i = 0; i < 4; ++i) {

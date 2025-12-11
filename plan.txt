@@ -1,3 +1,10 @@
+conversions:
+1' = 60"
+1* = 3,600"
+1s = 15'
+1m = 900'
+1h = 54,000'
+
 rough align.
 e 2s ? - exposure
 capture black frames 10 or so
@@ -28,6 +35,31 @@ there are 3 or so magnitude <11 with 9 minutes of celestial center.
 540 arc seconds.
 so might be able to get them in the field of view.
 
+once close to polar aligned,
+maybe align to SAO 3788 mag 9.69 at 18h 32m 45.1s +89° 51' 00.0"
+9' over the top = 540"
+tonight it will be close left of celestial pole.
+there's another star that is relatively close.
+TYC 4661-22-1 Magnitude 11.06 Ra/Dec 20h 07m 08.1s +89° 42' 42.4"
+halfway between them would be: 19h 19.5m 26.6s 89* 46' 51.2"
+which is about 789" over the top.
+
+another trio is:
+TYC 4627-64-1 Magnitude 11.00 Ra/Dec 03h 24m 55.4s +89° 51' 03.9"
+Gaia DR2 576450032065053568 Magnitude 11.56 Ra/Dec 02h 04m 45.1s +89° 48' 08.7"
+SAO 49 Magnitude 10.50 Ra/Dec 00h 57m 24.7s +89° 48' 45.0"
+center would be: 1h 69m 1.733s 89* 49' 19.2"
+which is about 641" south 5 hours west = 270,000"
+tonight it will be close to straight up.
+
+there's a cluster of stars tonight about 29'=1710" 6h 30m east of pole.
+4 maybe 5 stars.
+
+need a goto command.
+it needs to accept degrees, hms, d'" formats.
+
+need to track the motion of reliable stars over time.
+reset it when we slew.
 
 
 mae 36000 - move east 10 degrees
