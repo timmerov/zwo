@@ -258,6 +258,103 @@ public:
         return ch;
     }
 
+    double popAngleFromInput() noexcept {
+        /** load the stringstream with the input. **/
+        std::stringstream ss;
+        ss<<input_;
+
+        std::string valid_units("d*'\"hms");
+        double total_angle = 0.0;
+
+        /** combine angle with different units. **/
+        for(;;) {
+            /** pop an angle. **/
+            int undo_angle_pos = ss.tellg();
+            double angle = 0.0;
+            ss>>angle;
+            if (ss.good() == false) {
+                break;
+            }
+
+            /** pop optional units. **/
+            int undo_units_pos = ss.tellg();
+            char units = 'd';
+            ss>>units;
+            if (ss.good()) {
+                LOG("good=true");
+                /** put the character back if it's not a valid unit. **/
+                auto found_pos = valid_units.find(units);
+                if (found_pos == std::string::npos) {
+                    if (total_angle != 0.0) {
+                        /** bad format. restore the angle. **/
+                        ss.seekg(undo_angle_pos);
+                        break;
+                    }
+                    /** default to degrees. **/
+                    ss.seekg(undo_units_pos);
+                    units = 'd';
+                }
+            }
+
+            /** convert the angle to the units. **/
+            switch (units) {
+            case 'd':
+            case '*':
+            default:
+                /** already in degrees. **/
+                valid_units = "'\"";
+                break;
+
+            case '\'':
+                /** convert to arcminutes. **/
+                angle /= 60.0;
+                valid_units = "\"";
+                break;
+
+            case '"':
+                /** convert to arcseconds. **/
+                angle /= 60.0 * 60.0;
+                valid_units = "";
+                break;
+
+            case 'h':
+                /** convert to hours. **/
+                angle *= 15.0;
+                valid_units = "ms";
+                break;
+
+            case 'm':
+                /** convert to minutes of arc. **/
+                angle = angle * 15.0 / 60.0;
+                valid_units = "s";
+                break;
+
+            case 's':
+                /** convert to seconds of arc. **/
+                angle = angle * 15.0 / 60.0 / 60.0;
+                valid_units = "";
+                break;
+            }
+
+            /** accumulate. **/
+            total_angle += angle;
+
+            /** stop when we hit arcseconds or seconds. **/
+            if (units == '"' || units == 's') {
+                break;
+            }
+        }
+
+        /** erase the consumed characters from the input. **/
+        int pos = ss.tellg();
+        input_.erase(0, pos);
+        LOG("after input="<<input_);
+
+        LOG("total_angle="<<total_angle);
+
+        return total_angle;
+    }
+
     void showMenu() noexcept {
         {
             std::lock_guard<std::mutex> lock(settings_->mutex_);
@@ -276,7 +373,7 @@ public:
             LOG("  k [+-01yn]   : toggle collimation circles: "<<settings_->show_circles_);
             LOG("  k x y        : draw collimation circles at x,y: "<<settings_->circles_x_<<","<<settings_->circles_y_);
             LOG("  l file       : load image file");
-            LOG("  ma [nsew] x  : slew n,s,e,w for arcseconds (angle)");
+            LOG("  ma [nsew] x  : slew n,s,e,w by angle DD[d*] MM' SS.SS\" or HHh MMm SS.SSs");
             LOG("  mi           : show mount info");
             LOG("  mh           : slew to home (zero) position");
             LOG("  mm [nsew] ms : slew n,s,e,w for milliseconds (time)");
@@ -454,7 +551,7 @@ public:
         int ch = popCommandFromInput();
         switch (ch) {
         case 'a':
-            slewArcseconds();
+            slewAngle();
             break;
 
         case 'h':
@@ -486,22 +583,27 @@ public:
         }
     }
 
-    void slewArcseconds() {
-        std::stringstream ss;
-        ss << input_;
-        char dir = 0;
-        double arcseconds = 0.0;
-        ss >> dir >> arcseconds;
+    void slewAngle() {
+        /** which direction. **/
+        int dir = popCommandFromInput();
         dir = std::tolower(dir);
         auto pos = std::string("nsew").find(dir);
         if (pos == std::string::npos) {
             LOG("MenuThread Slew direction must be one of n,s,e,w.");
             return;
         }
-        if (arcseconds == 0.0) {
-            LOG("MenuThread Slew arcseconds is zero.");
+
+        /** how far. **/
+        double angle = popAngleFromInput();
+        if (angle == 0.0) {
+            LOG("MenuThread Slew angle is zero.");
             return;
         }
+
+        /** convert degrees to arcseconds. **/
+        double arcseconds = angle * 60 * 60;
+
+        /** slew **/
         mount_->moveArcseconds(dir, arcseconds);
         is_tracking_ = true;
     }
