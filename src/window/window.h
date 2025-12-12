@@ -256,6 +256,8 @@ public:
 
     void addStarsToList() noexcept;
 
+    void manageStarTrails() noexcept;
+
     void calculateCenter() noexcept;
 
     void matchStarLists() noexcept;

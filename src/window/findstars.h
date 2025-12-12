@@ -44,6 +44,8 @@ public:
 
     /** state information. **/
     bool building_list_ = false;
+    int build_count_ = 0;
+    int build_size_ = 0;
     StarLists lists_;
 };
 

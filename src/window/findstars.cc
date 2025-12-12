@@ -557,9 +557,8 @@ void WindowThread::handleStarCommand() noexcept {
     switch (star_command_) {
     case StarCommand::kNone:
     default:
-        if (star_.building_list_) {
-            addStarsToList();
-        }
+        addStarsToList();
+        manageStarTrails();
         break;
 
     case StarCommand::kBegin:
@@ -579,10 +578,9 @@ void WindowThread::handleStarCommand() noexcept {
         break;
 
     case StarCommand::kEnd:
-        if (star_.building_list_) {
-            addStarsToList();
-        }
+        addStarsToList();
         endStarList();
+        star_.build_size_ = 0;
         break;
 
     case StarCommand::kList:
@@ -609,9 +607,12 @@ void WindowThread::beginStarList() noexcept {
 
     LOG("WindowThread star command: begin list");
     star_.building_list_ = true;
+    star_.build_count_ = 0;
+    star_.build_size_ = star_param_;
     StarPositions list;
     star_.lists_.push_back(list);
     addStarsToList();
+    manageStarTrails();
 }
 
 void WindowThread::deleteStarList() noexcept {
@@ -692,9 +693,13 @@ void WindowThread::showStarLists() noexcept {
 }
 
 void WindowThread::addStarsToList() noexcept {
+    if (star_.building_list_ == false) {
+        return;
+    }
+
     //LOG("adding stars to list.");
     int nlists = star_.lists_.size();
-    if (nlists <= 0) {
+    if (nlists == 0) {
         return;
     }
 
@@ -763,6 +768,27 @@ void WindowThread::addStarsToList() noexcept {
             ++star.missed_;
         }
     }
+}
+
+void WindowThread::manageStarTrails() noexcept {
+    /** no star trails. **/
+    if (star_.building_list_ == false) {
+        return;
+    }
+    if (star_.build_size_ == 0) {
+        return;
+    }
+
+    /** not time to end list. **/
+    ++star_.build_count_;
+    if (star_.build_count_ < star_.build_size_) {
+        return;
+    }
+
+    /** end the list. **/
+    star_.build_count_ = 0;
+    star_.build_size_ = 0;
+    endStarList();
 }
 
 class CalculateCenter : public LevenbergMarquardt {

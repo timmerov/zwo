@@ -413,7 +413,7 @@ public:
             LOG("  t [+-01yn]   : stop or resume saving 16 bit tiffs: "<<settings_->auto_save_);
             LOG("  x            : run the experiment of the day");
             LOG("  z [+-01yn]   : find and circle stars: "<<settings_->find_stars_);
-            LOG("  zb           : begin new star list.");
+            LOG("  zb [x]       : begin new star list.");
             LOG("  zc           : calculate center from star lists.");
             LOG("  zd [x]       : delete star list x or all star lists.");
             LOG("  ze           : end star list.");
@@ -888,10 +888,11 @@ public:
             /** complex command. **/
             int ch = popCommandFromInput();
             switch (ch) {
-            case 'b':
+            case 'b': {
                 LOG("MenuThread star command: begin list");
                 star_command = StarCommand::kBegin;
-                break;
+                star_param = getInt(0);
+            } break;
 
             case 'c':
                 LOG("MenuThread star command: calculate center");

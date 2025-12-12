@@ -16,6 +16,31 @@ use up/down to find some stars
 mt 1 - enable tracking
 focus
 
+method 3.
+mt 1 - enable tracking
+mas 20 - slew south 20 degrees.
+the scope should be pointed east-ish.
+watch stars.
+if they aren't moving much, make a list.
+if the stars move xx, move the mount yy.
+up -> left
+down -> right
+left -> down
+right -> up
+repeat until the stars don't move.
+maw 80 - slew west 80 degrees.
+the scope should be pointed up-ish.
+watch the stars.
+they should not move much.
+repeat.
+
+
+to do:
+zt - star trails.
+make a star list every 5 frames or so.
+keep up to 4 lists.
+
+
 method 2.
 enable tracking.
 slew south 10s of degrees.
