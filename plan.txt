@@ -16,6 +16,28 @@ use up/down to find some stars
 mt 1 - enable tracking
 focus
 
+method 2.
+enable tracking.
+slew south 10s of degrees.
+the scope should be pointed east-ish.
+watch stars.
+if they are not moving left/right much make a list.
+wait.
+if the stars move left then move the mount down.
+if the stars move right then move the mount up.
+about a quarter turn.
+repeat the up/down adjustments until satisfied or bored.
+slew west 80 degrees.
+the scope should be pointed up-ish.
+watch stars.
+if they are not moving left/right much make a list.
+wait.
+if the stars move left then move the mount right.
+if the stars move right then move the mount left.
+repeat the left/right adjustments until satisfied or bored.
+repeat up/down and left/right until satisfied or bored.
+
+
 better align. requires patience.
 zb - begin list
 10 frames or so

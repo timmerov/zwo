@@ -355,6 +355,9 @@ public:
                 break;
             }
 
+            is_first = false;
+            //LOG("is_first=false");
+
             /** accumulate. **/
             total_angle += angle;
             //LOG("total_angle="<<total_angle);
@@ -363,9 +366,6 @@ public:
             if (units == '"' || units == 's') {
                 break;
             }
-
-            is_first = false;
-            //LOG("is_first=false");
         }
 
         /** erase the consumed characters from the input. **/
