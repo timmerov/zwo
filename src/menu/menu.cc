@@ -116,6 +116,9 @@ public:
             return;
         }
         getFirstLine();
+        if (input_.size() == 0) {
+            return;
+        }
         int ch = popCommandFromInput();
         switch (ch) {
         case 'a':
@@ -231,6 +234,17 @@ public:
         pos = input_.find("//");
         if (pos != std::string::npos) {
             input_.erase(pos);
+            /** no input. **/
+            if (input_.size() == 0) {
+                return;
+            }
+            /** any input other than the comment? **/
+            pos = input_.find_first_not_of(" \t");
+            if (pos == std::string::npos) {
+                /** no actual input. **/
+                input_ = "";
+                return;
+            }
             /** restore the trailing end line. **/
             input_ += '\n';
         }
