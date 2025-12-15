@@ -22,11 +22,10 @@ save or auto save the raw image
 if a filename was given.
 **/
 void WindowThread::saveImageRaw() noexcept {
-    if (raw_file_name_.size()) {
-        saveRawImage();
-    }
     if (auto_save_) {
         autoSaveRawImage();
+    } else if (raw_file_name_.size() > 0) {
+        saveRawImage();
     }
 }
 
